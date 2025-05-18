@@ -1,0 +1,68 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ctfd
+  namespace: ctfd
+  labels:
+    app.kubernetes.io/name: ctfd
+    app.kubernetes.io/component: ctfd
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ctfd
+      app.kubernetes.io/component: ctfd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ctfd
+        app.kubernetes.io/component: ctfd
+    spec:
+      serviceAccountName: ctfd
+      securityContext:
+        runAsUser: 1001 # ctfd
+        runAsNonRoot: true
+      containers:
+        - name: ctfd
+          image: ctfd/ctfd:3.7.6
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: ctfd
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp
+          resources:
+            requests:
+              memory: 3Gi
+              cpu: 100m
+            limits:
+              memory: 4Gi
+          startupProbe:
+            httpGet:
+              port: http
+              path: /healthcheck
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /healthcheck
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /healthcheck
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+        

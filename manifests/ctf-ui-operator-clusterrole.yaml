@@ -4,10 +4,21 @@ kind: ClusterRole
 metadata:
   name: ctf-ui-operator
 rules:
+  - resources:
+      - serviceaccounts
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
   - apiGroups:
       - ui.ctf.backbone81
     resources:
       - ctfds
+      - redis
     verbs:
       - create
       - delete
@@ -20,12 +31,14 @@ rules:
       - ui.ctf.backbone81
     resources:
       - ctfds/finalizers
+      - redis/finalizers
     verbs:
       - update
   - apiGroups:
       - ui.ctf.backbone81
     resources:
       - ctfds/status
+      - redis/status
     verbs:
       - get
       - patch
