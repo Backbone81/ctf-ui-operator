@@ -1,0 +1,32 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ctf-ui-operator
+rules:
+  - apiGroups:
+      - ui.ctf.backbone81
+    resources:
+      - ctfds
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ui.ctf.backbone81
+    resources:
+      - ctfds/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - ui.ctf.backbone81
+    resources:
+      - ctfds/status
+    verbs:
+      - get
+      - patch
+      - update

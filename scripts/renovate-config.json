@@ -1,0 +1,60 @@
+{
+  "username": "renovate-release",
+  "gitAuthor": "Renovate Bot <bot@renovateapp.com>",
+  "repositories": [
+    "backbone81/ctf-ui-operator"
+  ],
+  "onboarding": false,
+  "requireConfig": "optional",
+  "extends": [
+    ":semanticPrefixFixDepsChoreOthers",
+    ":ignoreModulesAndTests",
+    "replacements:all",
+    "workarounds:all",
+    ":prHourlyLimitNone"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
+  "fetchChangeLogs": "off",
+  "packageRules": [
+    {
+      "matchFileNames": [".github/workflows/**"],
+      "enabled": false
+    },
+    {
+      "groupName": "Major Versions",
+      "matchUpdateTypes": ["major"]
+    },
+    {
+      "groupName": "Minor Versions",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchDatasources": ["go"],
+      "matchPackageNames": [
+        "k8s.io/**"
+      ],
+      "allowedVersions": "< 0.32.0"
+    },
+    {
+      "matchDatasources": ["go"],
+      "matchPackageNames": [
+        "sigs.k8s.io/controller-runtime"
+      ],
+      "allowedVersions": "< 0.20.0"
+    },
+    {
+      "matchDatasources": ["golang-version"],
+      "allowedVersions": "< 1.24.0",
+      "rangeStrategy": "bump"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["golang"],
+      "allowedVersions": "< 1.24.0",
+      "rangeStrategy": "bump"
+    }
+  ]
+}

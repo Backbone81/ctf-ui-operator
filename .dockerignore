@@ -1,0 +1,5 @@
+# Temporary files
+/tmp
+
+# Binaries which are build by this project
+/ctf-ui-operator

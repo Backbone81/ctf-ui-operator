@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ctf-ui-operator-clusterrole.yaml
+  - ctf-ui-operator-clusterrolebinding.yaml
+  - ctf-ui-operator-crd.yaml
+  - ctf-ui-operator-deploy.yaml
+  - ctf-ui-operator-netpol.yaml
+  - ctf-ui-operator-ns.yaml
+  - ctf-ui-operator-role.yaml
+  - ctf-ui-operator-rolebinding.yaml
+  - ctf-ui-operator-sa.yaml

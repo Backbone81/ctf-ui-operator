@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+KUBERNETES_VERSION=$(go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $3}')
+
+# Get the name and location of this script.
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_NAME="$( basename "${BASH_SOURCE[0]}" )"
+
+# Specify the installation target location.
+BIN_DIR="${SCRIPT_DIR}/../tmp"
+KUBEBUILDER_ASSETS=$(setup-envtest use "${KUBERNETES_VERSION}" --bin-dir "${BIN_DIR}" -p path)
+BIN_NAME="${SCRIPT_NAME}"
+BIN_PATH="${KUBEBUILDER_ASSETS}/${BIN_NAME}"
+
+exec "${BIN_PATH}" "$@"
