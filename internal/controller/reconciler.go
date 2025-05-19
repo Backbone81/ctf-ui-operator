@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/backbone81/ctf-ui-operator/internal/controller/ctfd"
+	"github.com/backbone81/ctf-ui-operator/internal/controller/redis"
 )
 
 // Reconciler is the main reconciler of this operator. It is responsible for registering and running all
@@ -50,6 +51,7 @@ type ReconcilerOption func(reconciler *Reconciler)
 // WithDefaultReconcilers returns a reconciler option which enables the default sub-reconcilers.
 func WithDefaultReconcilers(recorder record.EventRecorder) ReconcilerOption {
 	return func(reconciler *Reconciler) {
+		WithRedisReconciler()(reconciler)
 	}
 }
 
@@ -59,6 +61,16 @@ func WithCTFdReconciler(recorder record.EventRecorder) ReconcilerOption {
 		reconciler.subReconcilers = append(
 			reconciler.subReconcilers,
 			ctfd.NewReconciler(reconciler.client, ctfd.WithDefaultReconcilers(recorder)),
+		)
+	}
+}
+
+// WithRedisReconciler returns a reconciler option which enables the Redis sub-reconciler.
+func WithRedisReconciler() ReconcilerOption {
+	return func(reconciler *Reconciler) {
+		reconciler.subReconcilers = append(
+			reconciler.subReconcilers,
+			redis.NewReconciler(reconciler.client, redis.WithDefaultReconcilers()),
 		)
 	}
 }

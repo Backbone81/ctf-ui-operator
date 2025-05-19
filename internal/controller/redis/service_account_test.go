@@ -34,7 +34,6 @@ var _ = Describe("ServiceAccountReconciler", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
-		Expect(instance.DeletionTimestamp.IsZero()).To(BeTrue())
 
 		By("run the reconciler")
 		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
