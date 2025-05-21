@@ -23,11 +23,11 @@ func NewReconciler(client client.Client, options ...utils.ReconcilerOption[*v1al
 // WithDefaultReconcilers returns a reconciler option which enables the default sub-reconcilers.
 func WithDefaultReconcilers() utils.ReconcilerOption[*v1alpha1.Redis] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.Redis]) {
+		WithStatusReconciler()(reconciler)
 		WithServiceAccountReconciler()(reconciler)
 		WithServiceReconciler()(reconciler)
 		WithPersistentVolumeClaimReconciler()(reconciler)
 		WithDeploymentReconciler()(reconciler)
-		WithStatusReconciler()(reconciler)
 	}
 }
 

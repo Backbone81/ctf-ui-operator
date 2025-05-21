@@ -93,7 +93,7 @@ func (r *ServiceReconciler) getDesiredServiceSpec(redis *v1alpha1.Redis) (*corev
 			},
 		},
 	}
-	if err := controllerutil.SetOwnerReference(redis, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(redis, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil

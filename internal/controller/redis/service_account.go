@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,7 +57,7 @@ func (r *ServiceAccountReconciler) reconcileOnCreate(ctx context.Context, desire
 }
 
 func (r *ServiceAccountReconciler) reconcileOnUpdate(ctx context.Context, currentSpec *v1.ServiceAccount, desiredSpec *v1.ServiceAccount) (ctrl.Result, error) {
-	if currentSpec.AutomountServiceAccountToken == desiredSpec.AutomountServiceAccountToken {
+	if equality.Semantic.DeepDerivative(desiredSpec.AutomountServiceAccountToken, currentSpec.AutomountServiceAccountToken) {
 		return ctrl.Result{}, nil
 	}
 
@@ -84,7 +85,7 @@ func (r *ServiceAccountReconciler) getDesiredServiceAccountSpec(redis *v1alpha1.
 		},
 		AutomountServiceAccountToken: ptr.To(false),
 	}
-	if err := controllerutil.SetOwnerReference(redis, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(redis, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil

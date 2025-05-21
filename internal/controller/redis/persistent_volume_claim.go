@@ -100,7 +100,7 @@ func (r *PersistentVolumeClaimReconciler) getDesiredPersistentVolumeClaimSpec(re
 	if redis.Spec.PersistentVolumeClaim != nil {
 		result.Spec = *redis.Spec.PersistentVolumeClaim
 	}
-	if err := controllerutil.SetOwnerReference(redis, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(redis, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil

@@ -157,6 +157,10 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(redis *v1alpha1.Redis) (
 										},
 									}),
 								},
+								TimeoutSeconds:   1,  // explicit default value required for DeepDerivative
+								PeriodSeconds:    10, // explicit default value required for DeepDerivative
+								SuccessThreshold: 1,  // explicit default value required for DeepDerivative
+								FailureThreshold: 3,  // explicit default value required for DeepDerivative
 							}),
 							ReadinessProbe: ptr.To(corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
@@ -167,6 +171,10 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(redis *v1alpha1.Redis) (
 										},
 									}),
 								},
+								TimeoutSeconds:   1,  // explicit default value required for DeepDerivative
+								PeriodSeconds:    10, // explicit default value required for DeepDerivative
+								SuccessThreshold: 1,  // explicit default value required for DeepDerivative
+								FailureThreshold: 3,  // explicit default value required for DeepDerivative
 							}),
 							LivenessProbe: ptr.To(corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
@@ -177,6 +185,10 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(redis *v1alpha1.Redis) (
 										},
 									}),
 								},
+								TimeoutSeconds:   1,  // explicit default value required for DeepDerivative
+								PeriodSeconds:    10, // explicit default value required for DeepDerivative
+								SuccessThreshold: 1,  // explicit default value required for DeepDerivative
+								FailureThreshold: 3,  // explicit default value required for DeepDerivative
 							}),
 						},
 					},
@@ -203,7 +215,7 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(redis *v1alpha1.Redis) (
 			},
 		},
 	}
-	if err := controllerutil.SetOwnerReference(redis, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(redis, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil
