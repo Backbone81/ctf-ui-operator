@@ -1,32 +1,33 @@
-package redis_test
+package mariadb_test
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/backbone81/ctf-ui-operator/api/v1alpha1"
-	"github.com/backbone81/ctf-ui-operator/internal/controller/redis"
+	"github.com/backbone81/ctf-ui-operator/internal/controller/mariadb"
 	"github.com/backbone81/ctf-ui-operator/internal/testutils"
 	"github.com/backbone81/ctf-ui-operator/internal/utils"
 )
 
-var _ = Describe("Reconciler", func() {
-	var reconciler *utils.Reconciler[*v1alpha1.Redis]
+var _ = Describe("SecretReconciler", func() {
+	var reconciler *utils.Reconciler[*v1alpha1.MariaDB]
 
 	BeforeEach(func() {
-		reconciler = redis.NewReconciler(k8sClient, redis.WithDefaultReconcilers())
+		reconciler = mariadb.NewReconciler(k8sClient, mariadb.WithSecretReconciler())
 	})
 
 	AfterEach(func(ctx SpecContext) {
 		DeleteAllInstances(ctx)
 	})
 
-	It("should successfully reconcile the resource", func(ctx SpecContext) {
+	It("should successfully create the secret", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
-		instance := v1alpha1.Redis{
+		instance := v1alpha1.MariaDB{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-",
 				Namespace:    corev1.NamespaceDefault,
@@ -38,5 +39,12 @@ var _ = Describe("Reconciler", func() {
 		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).To(BeZero())
+
+		By("verify all postconditions")
+		var secret corev1.Secret
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&instance), &secret)).To(Succeed())
+		Expect(secret.Data["MARIADB_USER"]).ToNot(BeEmpty())
+		Expect(secret.Data["MARIADB_PASSWORD"]).ToNot(BeEmpty())
+		Expect(secret.Data["MARIADB_DATABASE"]).ToNot(BeEmpty())
 	})
 })

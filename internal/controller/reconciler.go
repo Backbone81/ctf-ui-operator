@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/backbone81/ctf-ui-operator/internal/controller/ctfd"
+	"github.com/backbone81/ctf-ui-operator/internal/controller/mariadb"
 	"github.com/backbone81/ctf-ui-operator/internal/controller/redis"
 )
 
@@ -52,6 +53,7 @@ type ReconcilerOption func(reconciler *Reconciler)
 func WithDefaultReconcilers(recorder record.EventRecorder) ReconcilerOption {
 	return func(reconciler *Reconciler) {
 		WithRedisReconciler()(reconciler)
+		WithMariaDBReconciler()(reconciler)
 	}
 }
 
@@ -61,6 +63,16 @@ func WithCTFdReconciler(recorder record.EventRecorder) ReconcilerOption {
 		reconciler.subReconcilers = append(
 			reconciler.subReconcilers,
 			ctfd.NewReconciler(reconciler.client, ctfd.WithDefaultReconcilers(recorder)),
+		)
+	}
+}
+
+// WithMariaDBReconciler returns a reconciler option which enables the MariaDB sub-reconciler.
+func WithMariaDBReconciler() ReconcilerOption {
+	return func(reconciler *Reconciler) {
+		reconciler.subReconcilers = append(
+			reconciler.subReconcilers,
+			mariadb.NewReconciler(reconciler.client, mariadb.WithDefaultReconcilers()),
 		)
 	}
 }

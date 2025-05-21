@@ -1,4 +1,4 @@
-package redis_test
+package mariadb_test
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -8,16 +8,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/backbone81/ctf-ui-operator/api/v1alpha1"
-	"github.com/backbone81/ctf-ui-operator/internal/controller/redis"
+	"github.com/backbone81/ctf-ui-operator/internal/controller/mariadb"
 	"github.com/backbone81/ctf-ui-operator/internal/testutils"
 	"github.com/backbone81/ctf-ui-operator/internal/utils"
 )
 
 var _ = Describe("Reconciler", func() {
-	var reconciler *utils.Reconciler[*v1alpha1.Redis]
+	var reconciler *utils.Reconciler[*v1alpha1.MariaDB]
 
 	BeforeEach(func() {
-		reconciler = redis.NewReconciler(k8sClient, redis.WithDefaultReconcilers())
+		reconciler = mariadb.NewReconciler(k8sClient, mariadb.WithDefaultReconcilers())
 	})
 
 	AfterEach(func(ctx SpecContext) {
@@ -26,7 +26,7 @@ var _ = Describe("Reconciler", func() {
 
 	It("should successfully reconcile the resource", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
-		instance := v1alpha1.Redis{
+		instance := v1alpha1.MariaDB{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-",
 				Namespace:    corev1.NamespaceDefault,

@@ -1,4 +1,4 @@
-package redis
+package mariadb
 
 import (
 	"context"
@@ -32,13 +32,13 @@ func (r *ServiceAccountReconciler) SetupWithManager(ctrlBuilder *builder.Builder
 	return ctrlBuilder.Owns(&corev1.ServiceAccount{})
 }
 
-func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, redis *v1alpha1.Redis) (ctrl.Result, error) {
-	currentSpec, err := r.getServiceAccount(ctx, redis)
+func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, mariadb *v1alpha1.MariaDB) (ctrl.Result, error) {
+	currentSpec, err := r.getServiceAccount(ctx, mariadb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	desiredSpec, err := r.getDesiredServiceAccountSpec(redis)
+	desiredSpec, err := r.getDesiredServiceAccountSpec(mariadb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -68,24 +68,24 @@ func (r *ServiceAccountReconciler) reconcileOnUpdate(ctx context.Context, curren
 	return ctrl.Result{}, nil
 }
 
-func (r *ServiceAccountReconciler) getServiceAccount(ctx context.Context, redis *v1alpha1.Redis) (*corev1.ServiceAccount, error) {
+func (r *ServiceAccountReconciler) getServiceAccount(ctx context.Context, mariadb *v1alpha1.MariaDB) (*corev1.ServiceAccount, error) {
 	var serviceAccount corev1.ServiceAccount
-	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(redis), &serviceAccount); err != nil {
+	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(mariadb), &serviceAccount); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
 	return &serviceAccount, nil
 }
 
-func (r *ServiceAccountReconciler) getDesiredServiceAccountSpec(redis *v1alpha1.Redis) (*corev1.ServiceAccount, error) {
+func (r *ServiceAccountReconciler) getDesiredServiceAccountSpec(mariadb *v1alpha1.MariaDB) (*corev1.ServiceAccount, error) {
 	result := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      redis.Name,
-			Namespace: redis.Namespace,
-			Labels:    redis.GetDesiredLabels(),
+			Name:      mariadb.Name,
+			Namespace: mariadb.Namespace,
+			Labels:    mariadb.GetDesiredLabels(),
 		},
 		AutomountServiceAccountToken: ptr.To(false),
 	}
-	if err := controllerutil.SetControllerReference(redis, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(mariadb, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil

@@ -1,4 +1,4 @@
-package redis
+package mariadb
 
 import (
 	"context"
@@ -28,13 +28,13 @@ func (r *StatusReconciler) SetupWithManager(ctrlBuilder *builder.Builder) *build
 	return ctrlBuilder.Owns(&appsv1.Deployment{})
 }
 
-func (r *StatusReconciler) Reconcile(ctx context.Context, redis *v1alpha1.Redis) (ctrl.Result, error) {
-	if !redis.DeletionTimestamp.IsZero() {
+func (r *StatusReconciler) Reconcile(ctx context.Context, mariadb *v1alpha1.MariaDB) (ctrl.Result, error) {
+	if !mariadb.DeletionTimestamp.IsZero() {
 		// We do not update the status when the resource is already being deleted.
 		return ctrl.Result{}, nil
 	}
 
-	deployment, err := r.getDeployment(ctx, redis)
+	deployment, err := r.getDeployment(ctx, mariadb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -42,20 +42,20 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, redis *v1alpha1.Redis)
 	ready := deployment != nil &&
 		deployment.Status.ReadyReplicas > 0 &&
 		deployment.Status.Replicas == deployment.Status.ReadyReplicas
-	if redis.Status.Ready == ready {
+	if mariadb.Status.Ready == ready {
 		return ctrl.Result{}, nil
 	}
 
-	redis.Status.Ready = ready
-	if err := r.GetClient().Status().Update(ctx, redis); err != nil {
+	mariadb.Status.Ready = ready
+	if err := r.GetClient().Status().Update(ctx, mariadb); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *StatusReconciler) getDeployment(ctx context.Context, redis *v1alpha1.Redis) (*appsv1.Deployment, error) {
+func (r *StatusReconciler) getDeployment(ctx context.Context, mariadb *v1alpha1.MariaDB) (*appsv1.Deployment, error) {
 	var deployment appsv1.Deployment
-	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(redis), &deployment); err != nil {
+	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(mariadb), &deployment); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
 	return &deployment, nil

@@ -8,6 +8,7 @@ rules:
       - ""
     resources:
       - persistentvolumeclaims
+      - secrets
       - serviceaccounts
       - services
     verbs:
@@ -34,6 +35,7 @@ rules:
       - ui.ctf.backbone81
     resources:
       - ctfds
+      - mariadbs
       - redis
     verbs:
       - create
@@ -47,6 +49,7 @@ rules:
       - ui.ctf.backbone81
     resources:
       - ctfds/finalizers
+      - mariadbs/finalizers
       - redis/finalizers
     verbs:
       - update
@@ -54,6 +57,7 @@ rules:
       - ui.ctf.backbone81
     resources:
       - ctfds/status
+      - mariadbs/status
       - redis/status
     verbs:
       - get

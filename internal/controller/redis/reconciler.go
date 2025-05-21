@@ -9,6 +9,7 @@ import (
 
 // +kubebuilder:rbac:groups=ui.ctf.backbone81,resources=redis,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ui.ctf.backbone81,resources=redis/finalizers,verbs=update
+// +kubebuilder:rbac:groups=ui.ctf.backbone81,resources=redis/status,verbs=get;update;patch
 
 func NewReconciler(client client.Client, options ...utils.ReconcilerOption[*v1alpha1.Redis]) *utils.Reconciler[*v1alpha1.Redis] {
 	return utils.NewReconciler[*v1alpha1.Redis](
