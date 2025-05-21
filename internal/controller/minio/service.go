@@ -1,4 +1,4 @@
-package redis
+package minio
 
 import (
 	"context"
@@ -32,13 +32,13 @@ func (r *ServiceReconciler) SetupWithManager(ctrlBuilder *builder.Builder) *buil
 	return ctrlBuilder.Owns(&corev1.Service{})
 }
 
-func (r *ServiceReconciler) Reconcile(ctx context.Context, redis *v1alpha1.Redis) (ctrl.Result, error) {
-	currentSpec, err := r.getService(ctx, redis)
+func (r *ServiceReconciler) Reconcile(ctx context.Context, minio *v1alpha1.Minio) (ctrl.Result, error) {
+	currentSpec, err := r.getService(ctx, minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	desiredSpec, err := r.getDesiredServiceSpec(redis)
+	desiredSpec, err := r.getDesiredServiceSpec(minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -68,33 +68,38 @@ func (r *ServiceReconciler) reconcileOnUpdate(ctx context.Context, currentSpec *
 	return ctrl.Result{}, nil
 }
 
-func (r *ServiceReconciler) getService(ctx context.Context, redis *v1alpha1.Redis) (*corev1.Service, error) {
+func (r *ServiceReconciler) getService(ctx context.Context, minio *v1alpha1.Minio) (*corev1.Service, error) {
 	var service corev1.Service
-	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(redis), &service); err != nil {
+	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(minio), &service); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
 	return &service, nil
 }
 
-func (r *ServiceReconciler) getDesiredServiceSpec(redis *v1alpha1.Redis) (*corev1.Service, error) {
+func (r *ServiceReconciler) getDesiredServiceSpec(minio *v1alpha1.Minio) (*corev1.Service, error) {
 	result := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      redis.Name,
-			Namespace: redis.Namespace,
-			Labels:    redis.GetDesiredLabels(),
+			Name:      minio.Name,
+			Namespace: minio.Namespace,
+			Labels:    minio.GetDesiredLabels(),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: redis.GetDesiredLabels(),
+			Selector: minio.GetDesiredLabels(),
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "redis",
-					Port:       6379,
-					TargetPort: intstr.FromString("redis"),
+					Name:       "minio",
+					Port:       9000,
+					TargetPort: intstr.FromString("minio"),
+				},
+				{
+					Name:       "web",
+					Port:       9001,
+					TargetPort: intstr.FromString("web"),
 				},
 			},
 		},
 	}
-	if err := controllerutil.SetControllerReference(redis, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(minio, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil

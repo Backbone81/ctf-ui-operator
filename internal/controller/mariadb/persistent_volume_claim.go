@@ -60,6 +60,7 @@ func (r *PersistentVolumeClaimReconciler) reconcileOnUpdate(ctx context.Context,
 	if equality.Semantic.DeepDerivative(desiredSpec.Spec, currentSpec.Spec) {
 		return ctrl.Result{}, nil
 	}
+
 	currentSpec.Spec = desiredSpec.Spec
 	if err := r.GetClient().Update(ctx, currentSpec); err != nil {
 		return ctrl.Result{}, err

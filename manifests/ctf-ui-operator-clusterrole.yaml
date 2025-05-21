@@ -36,6 +36,7 @@ rules:
     resources:
       - ctfds
       - mariadbs
+      - minios
       - redis
     verbs:
       - create
@@ -50,6 +51,7 @@ rules:
     resources:
       - ctfds/finalizers
       - mariadbs/finalizers
+      - minios/finalizers
       - redis/finalizers
     verbs:
       - update
@@ -58,6 +60,7 @@ rules:
     resources:
       - ctfds/status
       - mariadbs/status
+      - minios/status
       - redis/status
     verbs:
       - get

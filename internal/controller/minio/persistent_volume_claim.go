@@ -1,4 +1,4 @@
-package redis
+package minio
 
 import (
 	"context"
@@ -32,13 +32,13 @@ func (r *PersistentVolumeClaimReconciler) SetupWithManager(ctrlBuilder *builder.
 	return ctrlBuilder.Owns(&corev1.PersistentVolumeClaim{})
 }
 
-func (r *PersistentVolumeClaimReconciler) Reconcile(ctx context.Context, redis *v1alpha1.Redis) (ctrl.Result, error) {
-	currentSpec, err := r.getPersistentVolumeClaim(ctx, redis)
+func (r *PersistentVolumeClaimReconciler) Reconcile(ctx context.Context, minio *v1alpha1.Minio) (ctrl.Result, error) {
+	currentSpec, err := r.getPersistentVolumeClaim(ctx, minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	desiredSpec, err := r.getDesiredPersistentVolumeClaimSpec(redis)
+	desiredSpec, err := r.getDesiredPersistentVolumeClaimSpec(minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -68,24 +68,24 @@ func (r *PersistentVolumeClaimReconciler) reconcileOnUpdate(ctx context.Context,
 	return ctrl.Result{}, nil
 }
 
-func (r *PersistentVolumeClaimReconciler) getPersistentVolumeClaim(ctx context.Context, redis *v1alpha1.Redis) (*corev1.PersistentVolumeClaim, error) {
+func (r *PersistentVolumeClaimReconciler) getPersistentVolumeClaim(ctx context.Context, minio *v1alpha1.Minio) (*corev1.PersistentVolumeClaim, error) {
 	var persistentVolumeClaim corev1.PersistentVolumeClaim
-	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(redis), &persistentVolumeClaim); err != nil {
+	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(minio), &persistentVolumeClaim); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
 	return &persistentVolumeClaim, nil
 }
 
-func (r *PersistentVolumeClaimReconciler) getDesiredPersistentVolumeClaimSpec(redis *v1alpha1.Redis) (*corev1.PersistentVolumeClaim, error) {
+func (r *PersistentVolumeClaimReconciler) getDesiredPersistentVolumeClaimSpec(minio *v1alpha1.Minio) (*corev1.PersistentVolumeClaim, error) {
 	storageSize, err := resource.ParseQuantity("128Mi")
 	if err != nil {
 		return nil, err
 	}
 	result := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      redis.Name,
-			Namespace: redis.Namespace,
-			Labels:    redis.GetDesiredLabels(),
+			Name:      minio.Name,
+			Namespace: minio.Namespace,
+			Labels:    minio.GetDesiredLabels(),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -98,10 +98,10 @@ func (r *PersistentVolumeClaimReconciler) getDesiredPersistentVolumeClaimSpec(re
 			},
 		},
 	}
-	if redis.Spec.PersistentVolumeClaim != nil {
-		result.Spec = *redis.Spec.PersistentVolumeClaim
+	if minio.Spec.PersistentVolumeClaim != nil {
+		result.Spec = *minio.Spec.PersistentVolumeClaim
 	}
-	if err := controllerutil.SetControllerReference(redis, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(minio, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil

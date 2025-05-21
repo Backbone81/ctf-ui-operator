@@ -1,4 +1,4 @@
-package mariadb
+package minio
 
 import (
 	"context"
@@ -32,13 +32,13 @@ func (r *SecretReconciler) SetupWithManager(ctrlBuilder *builder.Builder) *build
 	return ctrlBuilder.Owns(&corev1.Secret{})
 }
 
-func (r *SecretReconciler) Reconcile(ctx context.Context, mariadb *v1alpha1.MariaDB) (ctrl.Result, error) {
-	currentSpec, err := r.getSecret(ctx, mariadb)
+func (r *SecretReconciler) Reconcile(ctx context.Context, minio *v1alpha1.Minio) (ctrl.Result, error) {
+	currentSpec, err := r.getSecret(ctx, minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	desiredSpec, err := r.getDesiredSecretSpec(mariadb)
+	desiredSpec, err := r.getDesiredSecretSpec(minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -62,19 +62,15 @@ func (r *SecretReconciler) reconcileOnUpdate(ctx context.Context, currentSpec *c
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) getSecret(ctx context.Context, mariadb *v1alpha1.MariaDB) (*corev1.Secret, error) {
+func (r *SecretReconciler) getSecret(ctx context.Context, minio *v1alpha1.Minio) (*corev1.Secret, error) {
 	var secret corev1.Secret
-	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(mariadb), &secret); err != nil {
+	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(minio), &secret); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
 	return &secret, nil
 }
 
-func (r *SecretReconciler) getDesiredSecretSpec(mariadb *v1alpha1.MariaDB) (*corev1.Secret, error) {
-	rootPassword, err := r.createRandomPassword()
-	if err != nil {
-		return nil, err
-	}
+func (r *SecretReconciler) getDesiredSecretSpec(minio *v1alpha1.Minio) (*corev1.Secret, error) {
 	user, err := r.createRandomUser()
 	if err != nil {
 		return nil, err
@@ -83,25 +79,18 @@ func (r *SecretReconciler) getDesiredSecretSpec(mariadb *v1alpha1.MariaDB) (*cor
 	if err != nil {
 		return nil, err
 	}
-	database, err := r.createRandomDatabase()
-	if err != nil {
-		return nil, err
-	}
 	result := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mariadb.Name,
-			Namespace: mariadb.Namespace,
-			Labels:    mariadb.GetDesiredLabels(),
+			Name:      minio.Name,
+			Namespace: minio.Namespace,
+			Labels:    minio.GetDesiredLabels(),
 		},
 		StringData: map[string]string{
-			"MARIADB_ROOT_PASSWORD": rootPassword,
-			"MARIADB_USER":          user,
-			"MARIADB_PASSWORD":      userPassword,
-			"MARIADB_DATABASE":      database,
-			"MARIADB_AUTO_UPGRADE":  "yes",
+			"MINIO_ROOT_USER":     user,
+			"MINIO_ROOT_PASSWORD": userPassword,
 		},
 	}
-	if err := controllerutil.SetControllerReference(mariadb, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(minio, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -121,17 +110,9 @@ func (r *SecretReconciler) randomString(length int) (string, error) {
 }
 
 func (r *SecretReconciler) createRandomPassword() (string, error) {
-	return r.randomString(128)
-}
-
-// createRandomUser creates a random username for MariaDB.
-// See https://mariadb.com/kb/en/create-user/#user-name-component for details on username rules.
-func (r *SecretReconciler) createRandomUser() (string, error) {
-	return r.randomString(80)
-}
-
-// createRandomDatabase creates a random database name for MariaDB.
-// See https://mariadb.com/kb/en/identifier-names/ for details on database names.
-func (r *SecretReconciler) createRandomDatabase() (string, error) {
 	return r.randomString(64)
+}
+
+func (r *SecretReconciler) createRandomUser() (string, error) {
+	return r.randomString(20)
 }

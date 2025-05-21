@@ -1,4 +1,4 @@
-package mariadb
+package minio
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	mariadbImage   = "mariadb:11.7.2"
+	minioImage     = "minio/minio:RELEASE.2025-04-22T22-12-26Z"
 	tmpVolumeName  = "tmp"
 	dataVolumeName = "data"
 )
@@ -40,13 +41,13 @@ func (r *DeploymentReconciler) SetupWithManager(ctrlBuilder *builder.Builder) *b
 	return ctrlBuilder.Owns(&appsv1.Deployment{})
 }
 
-func (r *DeploymentReconciler) Reconcile(ctx context.Context, mariadb *v1alpha1.MariaDB) (ctrl.Result, error) {
-	currentSpec, err := r.getDeployment(ctx, mariadb)
+func (r *DeploymentReconciler) Reconcile(ctx context.Context, minio *v1alpha1.Minio) (ctrl.Result, error) {
+	currentSpec, err := r.getDeployment(ctx, minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	desiredSpec, err := r.getDesiredDeploymentSpec(mariadb)
+	desiredSpec, err := r.getDesiredDeploymentSpec(minio)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -76,19 +77,19 @@ func (r *DeploymentReconciler) reconcileOnUpdate(ctx context.Context, currentSpe
 	return ctrl.Result{}, nil
 }
 
-func (r *DeploymentReconciler) getDeployment(ctx context.Context, mariadb *v1alpha1.MariaDB) (*appsv1.Deployment, error) {
+func (r *DeploymentReconciler) getDeployment(ctx context.Context, minio *v1alpha1.Minio) (*appsv1.Deployment, error) {
 	var deployment appsv1.Deployment
-	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(mariadb), &deployment); err != nil {
+	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(minio), &deployment); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
 	return &deployment, nil
 }
 
 //nolint:funlen // We want to keep the structure of the yaml manifest.
-func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaDB) (*appsv1.Deployment, error) {
+func (r *DeploymentReconciler) getDesiredDeploymentSpec(minio *v1alpha1.Minio) (*appsv1.Deployment, error) {
 	var resources corev1.ResourceRequirements
-	if mariadb.Spec.Resources != nil {
-		resources = *mariadb.Spec.Resources
+	if minio.Spec.Resources != nil {
+		resources = *minio.Spec.Resources
 	}
 	emptyDirSize, err := resource.ParseQuantity("128Mi")
 	if err != nil {
@@ -96,9 +97,9 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 	}
 	result := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mariadb.Name,
-			Namespace: mariadb.Namespace,
-			Labels:    mariadb.GetDesiredLabels(),
+			Name:      minio.Name,
+			Namespace: minio.Namespace,
+			Labels:    minio.GetDesiredLabels(),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
@@ -106,25 +107,27 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 				Type: appsv1.RecreateDeploymentStrategyType,
 			},
 			Selector: ptr.To(metav1.LabelSelector{
-				MatchLabels: mariadb.GetDesiredLabels(),
+				MatchLabels: minio.GetDesiredLabels(),
 			}),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: mariadb.GetDesiredLabels(),
+					Labels: minio.GetDesiredLabels(),
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: mariadb.Name,
+					ServiceAccountName: minio.Name,
 					SecurityContext: ptr.To(corev1.PodSecurityContext{
-						RunAsUser:    ptr.To[int64](999),
+						RunAsUser:    ptr.To[int64](65534),
 						RunAsNonRoot: ptr.To(true),
 					}),
 					Containers: []corev1.Container{
 						{
-							Name:  "mariadb",
-							Image: mariadbImage,
+							Name:  "minio",
+							Image: minioImage,
 							Args: []string{
-								"--pid-file=/tmp/mysqld.pid",
-								"--socket=/tmp/mysqld.sock",
+								"server",
+								"--address=:9000",
+								"--console-address=:9001",
+								"/mnt/data",
 							},
 							SecurityContext: ptr.To(corev1.SecurityContext{
 								ReadOnlyRootFilesystem:   ptr.To(true),
@@ -138,15 +141,19 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 							}),
 							Ports: []corev1.ContainerPort{
 								{
-									Name:          "mariadb",
-									ContainerPort: 3306,
+									Name:          "minio",
+									ContainerPort: 9000,
+								},
+								{
+									Name:          "web",
+									ContainerPort: 9001,
 								},
 							},
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									SecretRef: ptr.To(corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: mariadb.Name,
+											Name: minio.Name,
 										},
 									}),
 								},
@@ -154,7 +161,7 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      dataVolumeName,
-									MountPath: "/var/lib/mysql",
+									MountPath: "/mnt/data",
 								},
 								{
 									Name:      tmpVolumeName,
@@ -164,12 +171,9 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 							Resources: resources,
 							StartupProbe: ptr.To(corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
-									Exec: ptr.To(corev1.ExecAction{
-										Command: []string{
-											"healthcheck.sh",
-											"--connect",
-											"--innodb_initialized",
-										},
+									HTTPGet: ptr.To(corev1.HTTPGetAction{
+										Path: "/minio/health/live",
+										Port: intstr.FromString("minio"),
 									}),
 								},
 								TimeoutSeconds:   1,  // explicit default value required for DeepDerivative
@@ -179,12 +183,9 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 							}),
 							ReadinessProbe: ptr.To(corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
-									Exec: ptr.To(corev1.ExecAction{
-										Command: []string{
-											"healthcheck.sh",
-											"--connect",
-											"--innodb_initialized",
-										},
+									HTTPGet: ptr.To(corev1.HTTPGetAction{
+										Path: "/minio/health/live",
+										Port: intstr.FromString("minio"),
 									}),
 								},
 								TimeoutSeconds:   1,  // explicit default value required for DeepDerivative
@@ -194,12 +195,9 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 							}),
 							LivenessProbe: ptr.To(corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
-									Exec: ptr.To(corev1.ExecAction{
-										Command: []string{
-											"healthcheck.sh",
-											"--connect",
-											"--innodb_initialized",
-										},
+									HTTPGet: ptr.To(corev1.HTTPGetAction{
+										Path: "/minio/health/live",
+										Port: intstr.FromString("minio"),
 									}),
 								},
 								TimeoutSeconds:   1,  // explicit default value required for DeepDerivative
@@ -214,7 +212,7 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 							Name: dataVolumeName,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: ptr.To(corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: mariadb.Name,
+									ClaimName: minio.Name,
 								}),
 							},
 						},
@@ -232,7 +230,7 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(mariadb *v1alpha1.MariaD
 			},
 		},
 	}
-	if err := controllerutil.SetControllerReference(mariadb, &result, r.GetClient().Scheme()); err != nil {
+	if err := controllerutil.SetControllerReference(minio, &result, r.GetClient().Scheme()); err != nil {
 		return nil, err
 	}
 	return &result, nil

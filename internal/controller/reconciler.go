@@ -8,6 +8,7 @@ import (
 
 	"github.com/backbone81/ctf-ui-operator/internal/controller/ctfd"
 	"github.com/backbone81/ctf-ui-operator/internal/controller/mariadb"
+	"github.com/backbone81/ctf-ui-operator/internal/controller/minio"
 	"github.com/backbone81/ctf-ui-operator/internal/controller/redis"
 )
 
@@ -52,8 +53,9 @@ type ReconcilerOption func(reconciler *Reconciler)
 // WithDefaultReconcilers returns a reconciler option which enables the default sub-reconcilers.
 func WithDefaultReconcilers(recorder record.EventRecorder) ReconcilerOption {
 	return func(reconciler *Reconciler) {
-		WithRedisReconciler()(reconciler)
 		WithMariaDBReconciler()(reconciler)
+		WithMinioReconciler()(reconciler)
+		WithRedisReconciler()(reconciler)
 	}
 }
 
@@ -73,6 +75,16 @@ func WithMariaDBReconciler() ReconcilerOption {
 		reconciler.subReconcilers = append(
 			reconciler.subReconcilers,
 			mariadb.NewReconciler(reconciler.client, mariadb.WithDefaultReconcilers()),
+		)
+	}
+}
+
+// WithMinioReconciler returns a reconciler option which enables the Minio sub-reconciler.
+func WithMinioReconciler() ReconcilerOption {
+	return func(reconciler *Reconciler) {
+		reconciler.subReconcilers = append(
+			reconciler.subReconcilers,
+			minio.NewReconciler(reconciler.client, minio.WithDefaultReconcilers()),
 		)
 	}
 }
