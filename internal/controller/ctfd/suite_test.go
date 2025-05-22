@@ -21,7 +21,7 @@ var (
 
 func TestReconciler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CTFd Suite")
+	RunSpecs(t, "ctfd Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -33,10 +33,10 @@ var _ = AfterSuite(func() {
 })
 
 func DeleteAllInstances(ctx context.Context) {
-	var ctFdList v1alpha1.CTFdList
-	Expect(k8sClient.List(ctx, &ctFdList)).To(Succeed())
+	var mariadbList v1alpha1.CTFdList
+	Expect(k8sClient.List(ctx, &mariadbList)).To(Succeed())
 
-	for _, ctfd := range ctFdList.Items {
+	for _, ctfd := range mariadbList.Items {
 		Expect(k8sClient.Delete(ctx, &ctfd)).To(Succeed())
 	}
 }

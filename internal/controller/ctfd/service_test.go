@@ -3,6 +3,7 @@ package ctfd_test
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,18 +14,18 @@ import (
 	"github.com/backbone81/ctf-ui-operator/internal/utils"
 )
 
-var _ = Describe("Reconciler", func() {
+var _ = Describe("ServiceReconciler", func() {
 	var reconciler *utils.Reconciler[*v1alpha1.CTFd]
 
 	BeforeEach(func() {
-		reconciler = ctfd.NewReconciler(k8sClient, ctfd.WithDefaultReconcilers())
+		reconciler = ctfd.NewReconciler(k8sClient, ctfd.WithServiceReconciler())
 	})
 
 	AfterEach(func(ctx SpecContext) {
 		DeleteAllInstances(ctx)
 	})
 
-	It("should successfully reconcile the resource", func(ctx SpecContext) {
+	It("should successfully create the service", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
 		instance := v1alpha1.CTFd{
 			ObjectMeta: metav1.ObjectMeta{
@@ -38,5 +39,10 @@ var _ = Describe("Reconciler", func() {
 		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).To(BeZero())
+
+		By("verify all postconditions")
+		var service corev1.Service
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&instance), &service)).To(Succeed())
+		Expect(service.Spec.Ports[0].Name).To(Equal("http"))
 	})
 })

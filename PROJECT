@@ -26,4 +26,22 @@ resources:
   kind: Redis
   path: github.com/backbone81/ctf-ui-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ctf.backbone81
+  group: ui
+  kind: MongoDB
+  path: github.com/backbone81/ctf-ui-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ctf.backbone81
+  group: ui
+  kind: Minio
+  path: github.com/backbone81/ctf-ui-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

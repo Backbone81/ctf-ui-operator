@@ -56,15 +56,16 @@ func WithDefaultReconcilers(recorder record.EventRecorder) ReconcilerOption {
 		WithMariaDBReconciler()(reconciler)
 		WithMinioReconciler()(reconciler)
 		WithRedisReconciler()(reconciler)
+		WithCTFdReconciler()(reconciler)
 	}
 }
 
 // WithCTFdReconciler returns a reconciler option which enables the CTFd sub-reconciler.
-func WithCTFdReconciler(recorder record.EventRecorder) ReconcilerOption {
+func WithCTFdReconciler() ReconcilerOption {
 	return func(reconciler *Reconciler) {
 		reconciler.subReconcilers = append(
 			reconciler.subReconcilers,
-			ctfd.NewReconciler(reconciler.client, ctfd.WithDefaultReconcilers(recorder)),
+			ctfd.NewReconciler(reconciler.client, ctfd.WithDefaultReconcilers()),
 		)
 	}
 }

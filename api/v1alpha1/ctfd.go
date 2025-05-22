@@ -1,14 +1,34 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CTFdSpec defines the desired state of CTFd.
-type CTFdSpec struct{}
+type CTFdSpec struct {
+	// +kubebuilder:validation:Optional
+	Replicas *int32 `json:"replicas"`
+
+	// Resources specifies resource requests and limits for CPU and memory.
+	// +kubebuilder:validation:Optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Redis provides configuration specific to Redis.
+	Redis RedisSpec `json:"redis"`
+
+	// MariaDB provides configuration specific to MariaDB.
+	MariaDB MariaDBSpec `json:"mariaDb"`
+
+	// Minio provides configuration specific to Minio.
+	Minio MinioSpec `json:"minio"`
+}
 
 // CTFdStatus defines the observed state of CTFd.
-type CTFdStatus struct{}
+type CTFdStatus struct {
+	// Ready is true when CTFd is up and running.
+	Ready bool `json:"ready"`
+}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -21,6 +41,20 @@ type CTFd struct {
 
 	Spec   CTFdSpec   `json:"spec,omitempty"`
 	Status CTFdStatus `json:"status,omitempty"`
+}
+
+func (r *CTFd) GetDesiredLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/name":     "CTFd",
+		"app.kubernetes.io/instance": r.Name,
+	}
+}
+
+func (r *CTFd) GetReplicas() int32 {
+	if r.Spec.Replicas == nil {
+		return 1
+	}
+	return *r.Spec.Replicas
 }
 
 // +kubebuilder:object:root=true
