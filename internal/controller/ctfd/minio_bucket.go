@@ -21,15 +21,63 @@ import (
 
 // +kubebuilder:rbac:groups=ui.ctf.backbone81,resources=minios,verbs=get;list;watch;create;update;patch;delete
 
+// MinioBucketReconciler is responsible for creating the bucket for the CTFd instance.
 type MinioBucketReconciler struct {
 	utils.DefaultSubReconciler
+	minioEndpointStrategy MinioEndpointStrategy
+}
+
+// MinioEndpointStrategy describes the way to get the Minio endpoint. As we need to differentiate between running
+// in-cluster and running out-of-cluster, both strategies need to implement this interface.
+type MinioEndpointStrategy interface {
+	GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error)
+}
+
+// InClusterMinioEndpointStrategy returns an endpoint which is the service name and the port for in-cluster usage.
+type InClusterMinioEndpointStrategy struct{}
+
+var _ MinioEndpointStrategy = (*InClusterMinioEndpointStrategy)(nil)
+
+func (s *InClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
+	return MinioName(ctfd) + ":9000", nil
+}
+
+// OutOfClusterMinioEndpointStrategy port forwards the minio service to the local host and returns an endpoint with
+// that forwarded port. The local port is a random free port.
+type OutOfClusterMinioEndpointStrategy struct {
 	servicePortForwarder *utils.ServicePortForwarder
 }
 
+var _ MinioEndpointStrategy = (*OutOfClusterMinioEndpointStrategy)(nil)
+
+func (s *OutOfClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
+	localPort, err := s.servicePortForwarder.PortForward(
+		ctx,
+		types.NamespacedName{
+			Namespace: ctfd.Namespace,
+			Name:      MinioName(ctfd),
+		},
+		intstr.FromString("minio"),
+	)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("127.0.0.1:%d", localPort), nil
+}
+
 func NewMinioBucketReconciler(client client.Client) *MinioBucketReconciler {
+	var minioEndpointStrategy MinioEndpointStrategy
+	if _, err := rest.InClusterConfig(); err != nil {
+		minioEndpointStrategy = &OutOfClusterMinioEndpointStrategy{
+			servicePortForwarder: utils.NewServicePortForwarder(client),
+		}
+	} else {
+		minioEndpointStrategy = &InClusterMinioEndpointStrategy{}
+	}
+
 	return &MinioBucketReconciler{
-		DefaultSubReconciler: utils.NewDefaultSubReconciler(client),
-		servicePortForwarder: utils.NewServicePortForwarder(client),
+		DefaultSubReconciler:  utils.NewDefaultSubReconciler(client),
+		minioEndpointStrategy: minioEndpointStrategy,
 	}
 }
 
@@ -97,23 +145,7 @@ func (r *MinioBucketReconciler) getMinio(ctx context.Context, ctfd *v1alpha1.CTF
 }
 
 func (r *MinioBucketReconciler) getMinioEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	if _, err := rest.InClusterConfig(); err != nil {
-		// We are running out-of-cluster (locally) and need to port-forward the service.
-		localPort, err := r.servicePortForwarder.PortForward(
-			ctx,
-			types.NamespacedName{
-				Namespace: ctfd.Namespace,
-				Name:      MinioName(ctfd),
-			},
-			intstr.FromString("minio"),
-		)
-		if err != nil {
-			return "", err
-		}
-
-		return fmt.Sprintf("127.0.0.1:%d", localPort), nil
-	}
-	return MinioName(ctfd) + ":9000", nil
+	return r.minioEndpointStrategy.GetEndpoint(ctx, ctfd)
 }
 
 func (r *MinioBucketReconciler) getMinioCredentials(ctx context.Context, ctfd *v1alpha1.CTFd) (string, string, error) {

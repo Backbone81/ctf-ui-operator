@@ -39,6 +39,8 @@ func NewServicePortForwarder(client client.Client) *ServicePortForwarder {
 // PortForward creates a port forwarding for the given service and port. It returns the local port the port forward
 // is listening for connections. If there is already a port forwarding active for the given service, the local port
 // of the existing port forwarding is returned.
+//
+//nolint:funlen
 func (f *ServicePortForwarder) PortForward(ctx context.Context, serviceName types.NamespacedName, servicePort intstr.IntOrString) (int, error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -100,7 +102,15 @@ func (f *ServicePortForwarder) PortForward(ctx context.Context, serviceName type
 		return 0, errors.New("the context was canceled while waiting for the port forward to become ready")
 	case <-readyChan:
 	}
-	return f.getLocalPort(newPortForward)
+	localPort, err := f.getLocalPort(newPortForward)
+	ctrl.LoggerFrom(ctx).Info(
+		"Port forwarding Service",
+		"service-namespace", serviceName.Namespace,
+		"service-name", serviceName.Name,
+		"service-port", servicePort.String(),
+		"local-port", localPort,
+	)
+	return localPort, err
 }
 
 func (f *ServicePortForwarder) getServiceTargetPort(service *corev1.Service, port intstr.IntOrString) (intstr.IntOrString, error) {
