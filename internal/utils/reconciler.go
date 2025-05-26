@@ -53,7 +53,7 @@ func (r *Reconciler[T]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	for _, subReconciler := range r.subReconcilers {
 		result, err := subReconciler.Reconcile(ctx, obj)
 		if err != nil || !result.IsZero() {
-			return result, err
+			return result, IgnoreConflict(err)
 		}
 	}
 	return ctrl.Result{}, nil

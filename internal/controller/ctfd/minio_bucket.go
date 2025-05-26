@@ -3,11 +3,13 @@ package ctfd
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -39,6 +41,10 @@ func (r *MinioBucketReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CT
 	currentSpec, err := r.getMinio(ctx, ctfd)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+	if currentSpec == nil {
+		// The minio instance is not available yet. We will get triggered later again.
+		return ctrl.Result{}, nil
 	}
 
 	if !currentSpec.Status.Ready {
@@ -99,12 +105,13 @@ func (r *MinioBucketReconciler) getMinioEndpoint(ctx context.Context, ctfd *v1al
 				Namespace: ctfd.Namespace,
 				Name:      MinioName(ctfd),
 			},
-			9000)
+			intstr.FromString("minio"),
+		)
 		if err != nil {
 			return "", err
 		}
 
-		return "localhost:" + localPort, nil
+		return fmt.Sprintf("127.0.0.1:%d", localPort), nil
 	}
 	return MinioName(ctfd) + ":9000", nil
 }

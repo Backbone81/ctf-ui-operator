@@ -10,6 +10,9 @@ DOCKER_IMAGE_REPOSITORY ?= backbone81/ctf-ui-operator
 # The docker image containing repository and tag.
 DOCKER_IMAGE ?= $(DOCKER_IMAGE_REPOSITORY):$(DOCKER_IMAGE_TAG)
 
+# The log level to use when executing the operator locally.
+LOG_LEVEL ?= 10
+
 # We want to have our binaries in the bin subdirectory available. In addition we want them to have priority over
 # binaries somewhere else on the system.
 export PATH := $(CURDIR)/bin:$(PATH)
@@ -27,7 +30,7 @@ help: ## Display this help.
 
 .PHONY: run
 run: lint ## Run the operator on your host.
-	go run ./cmd/ctf-ui-operator --enable-developer-mode --log-level 10
+	go run ./cmd/ctf-ui-operator --enable-developer-mode --log-level $(LOG_LEVEL)
 
 .PHONY: test
 test: lint ## Run tests.
