@@ -27,6 +27,7 @@ func WithDefaultReconcilers() utils.ReconcilerOption[*v1alpha1.CTFd] {
 		WithStatusReconciler()(reconciler)
 		WithMariaDBReconciler()(reconciler)
 		WithMinioReconciler()(reconciler)
+		WithMinioBucketReconciler()(reconciler)
 		WithRedisReconciler()(reconciler)
 		WithServiceAccountReconciler()(reconciler)
 		WithServiceReconciler()(reconciler)
@@ -50,6 +51,12 @@ func WithMariaDBReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
 func WithMinioReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
 		reconciler.AppendSubReconciler(NewMinioReconciler(reconciler.GetClient()))
+	}
+}
+
+func WithMinioBucketReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
+	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
+		reconciler.AppendSubReconciler(NewMinioBucketReconciler(reconciler.GetClient()))
 	}
 }
 

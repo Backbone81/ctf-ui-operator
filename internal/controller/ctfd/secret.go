@@ -171,7 +171,7 @@ func (r *SecretReconciler) getMinioUrl(ctfd *v1alpha1.CTFd) string {
 func (r *SecretReconciler) getMinioCredentials(ctx context.Context, ctfd *v1alpha1.CTFd) (string, string, error) {
 	var secret corev1.Secret
 	if err := r.GetClient().Get(ctx, client.ObjectKey{
-		Name:      MariaDBName(ctfd),
+		Name:      MinioName(ctfd),
 		Namespace: ctfd.Namespace,
 	}, &secret); err != nil {
 		return "", "", err

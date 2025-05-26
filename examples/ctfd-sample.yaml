@@ -24,7 +24,7 @@ spec:
       resources:
         requests:
           storage: 1Gi
-  mariaDB:
+  mariaDb:
     resources:
       requests:
         memory: 1Gi
