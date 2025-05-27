@@ -33,6 +33,7 @@ var _ = Describe("Reconciler", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
+		Expect(CreateRequiredThirdPartySecrets(ctx, &instance)).To(Succeed())
 
 		By("run the reconciler")
 		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))

@@ -65,6 +65,7 @@ var _ = Describe("StatusReconciler", func() {
 		deployment.Status.Replicas = 3
 		deployment.Status.ReadyReplicas = 2
 		Expect(k8sClient.Status().Update(ctx, &deployment)).To(Succeed())
+		Expect(SetThirdPartyCRsReady(ctx, &instance, true)).To(Succeed())
 
 		By("run the reconciler")
 		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
@@ -114,6 +115,7 @@ var _ = Describe("StatusReconciler", func() {
 		deployment.Status.Replicas = 3
 		deployment.Status.ReadyReplicas = 3
 		Expect(k8sClient.Status().Update(ctx, &deployment)).To(Succeed())
+		Expect(SetThirdPartyCRsReady(ctx, &instance, true)).To(Succeed())
 
 		By("run the reconciler")
 		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))

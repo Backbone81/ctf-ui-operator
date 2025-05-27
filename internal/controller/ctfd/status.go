@@ -106,7 +106,7 @@ func (r *StatusReconciler) getMinio(ctx context.Context, ctfd *v1alpha1.CTFd) (*
 	var minio v1alpha1.Minio
 	if err := r.GetClient().Get(ctx, client.ObjectKey{
 		Namespace: ctfd.Namespace,
-		Name:      MariaDBName(ctfd),
+		Name:      MinioName(ctfd),
 	}, &minio); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
