@@ -19,8 +19,9 @@ jobs:
 
       - name: Run Tests
         run: |
-          set -ex
+          # set -ex
           make test-e2e
+          cat kuttl/setup/setup.yaml
 
       - name: Check for Modified Files
         run: |
