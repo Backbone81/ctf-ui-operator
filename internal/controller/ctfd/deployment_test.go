@@ -30,12 +30,12 @@ var _ = Describe("DeploymentReconciler", func() {
 
 	It("should successfully create the deployment", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
-		instance := v1alpha1.CTFd{
+		instance := AddDefaults(v1alpha1.CTFd{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-",
 				Namespace:    corev1.NamespaceDefault,
 			},
-		}
+		})
 		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
 
 		By("run the reconciler")
@@ -61,7 +61,7 @@ var _ = Describe("DeploymentReconciler", func() {
 				corev1.ResourceMemory: resource.MustParse("4Gi"),
 			},
 		}
-		instance := v1alpha1.CTFd{
+		instance := AddDefaults(v1alpha1.CTFd{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-",
 				Namespace:    corev1.NamespaceDefault,
@@ -69,7 +69,7 @@ var _ = Describe("DeploymentReconciler", func() {
 			Spec: v1alpha1.CTFdSpec{
 				Resources: ptr.To(resources),
 			},
-		}
+		})
 		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
 
 		By("run the reconciler")

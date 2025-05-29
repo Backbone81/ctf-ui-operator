@@ -11,7 +11,7 @@ DOCKER_IMAGE_REPOSITORY ?= backbone81/ctf-ui-operator
 DOCKER_IMAGE ?= $(DOCKER_IMAGE_REPOSITORY):$(DOCKER_IMAGE_TAG)
 
 # The log level to use when executing the operator locally.
-LOG_LEVEL ?= 10
+LOG_LEVEL ?= 0
 
 # We want to have our binaries in the bin subdirectory available. In addition we want them to have priority over
 # binaries somewhere else on the system.

@@ -73,7 +73,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		reconciler := controller.NewReconciler(
-			utils.NewLoggingClient(mgr.GetClient(), logger),
+			utils.NewLoggingClient(mgr.GetClient()),
 			controller.WithDefaultReconcilers(mgr.GetEventRecorderFor("ctf-ui-operator")),
 		)
 		if err := reconciler.SetupWithManager(mgr); err != nil {

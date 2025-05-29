@@ -14,11 +14,11 @@ import (
 	"github.com/backbone81/ctf-ui-operator/internal/utils"
 )
 
-var _ = Describe("SecretReconciler", func() {
+var _ = Describe("AdminSecretReconciler", func() {
 	var reconciler *utils.Reconciler[*v1alpha1.CTFd]
 
 	BeforeEach(func() {
-		reconciler = ctfd.NewReconciler(k8sClient, ctfd.WithSecretReconciler())
+		reconciler = ctfd.NewReconciler(k8sClient, ctfd.WithAdminSecretReconciler())
 	})
 
 	AfterEach(func(ctx SpecContext) {
@@ -43,9 +43,12 @@ var _ = Describe("SecretReconciler", func() {
 
 		By("verify all postconditions")
 		var secret corev1.Secret
-		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&instance), &secret)).To(Succeed())
-		Expect(secret.Data["SECRET_KEY"]).ToNot(BeEmpty())
-		Expect(secret.Data["DATABASE_URL"]).ToNot(BeEmpty())
-		Expect(secret.Data["REDIS_URL"]).ToNot(BeEmpty())
+		Expect(k8sClient.Get(ctx, client.ObjectKey{
+			Name:      ctfd.AdminSecretName(&instance),
+			Namespace: instance.Namespace,
+		}, &secret)).To(Succeed())
+		Expect(secret.Data["name"]).ToNot(BeEmpty())
+		Expect(secret.Data["email"]).ToNot(BeEmpty())
+		Expect(secret.Data["password"]).ToNot(BeEmpty())
 	})
 })

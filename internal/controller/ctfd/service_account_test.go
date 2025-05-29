@@ -27,12 +27,12 @@ var _ = Describe("ServiceAccountReconciler", func() {
 
 	It("should successfully create the service account", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
-		instance := v1alpha1.CTFd{
+		instance := AddDefaults(v1alpha1.CTFd{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-",
 				Namespace:    corev1.NamespaceDefault,
 			},
-		}
+		})
 		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
 
 		By("run the reconciler")

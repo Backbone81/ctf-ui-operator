@@ -7,6 +7,72 @@ import (
 
 // CTFdSpec defines the desired state of CTFd.
 type CTFdSpec struct {
+	// Title is the title for the CTF event.
+	// +kubebuilder:validation:Required
+	Title string `json:"title"`
+
+	// Description is the description for the CTF event.
+	// +kubebuilder:validation:Required
+	Description string `json:"description"`
+
+	// UserMode is the user mode for the CTF event.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=teams;users
+	// +kubebuilder:default=teams
+	UserMode string `json:"userMode"`
+
+	// ChallengeVisibility is the visibility for the challenges.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=public;private;admins
+	// +kubebuilder:default=private
+	ChallengeVisibility string `json:"challengeVisibility"`
+
+	// AccountVisibility is the visibility for the accounts.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=public;private;admins
+	// +kubebuilder:default=private
+	AccountVisibility string `json:"accountVisibility"`
+
+	// ScoreVisibility is the visibility for the scores.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=public;private;hidden;admins
+	// +kubebuilder:default=private
+	ScoreVisibility string `json:"scoreVisibility"`
+
+	// RegistrationVisibility is the visibility for the registration.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=public;private;mlc
+	// +kubebuilder:default=private
+	RegistrationVisibility string `json:"registrationVisibility"`
+
+	// VerifyEmails specifies if email addresses need to be verified.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default=true
+	VerifyEmails bool `json:"verifyEmails"`
+
+	// TeamSize specifies the maximum number of members in a team.
+	// +kubebuilder:validation:Optional
+	TeamSize *int `json:"teamSize"`
+
+	// Theme is the visual theme to use for the website.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=core-beta;core
+	// +kubebuilder:default=core-beta
+	Theme string `json:"theme"`
+
+	// ThemeColor is the primary color for the theme of the website defined as '#rrggbb'.
+	// +kubebuilder:validation:Optional
+	ThemeColor *string `json:"themeColor"`
+
+	// Start is the start time of the event.
+	// +kubebuilder:validation:Optional
+	Start *metav1.Time `json:"start"`
+
+	// End is the end time of the event.
+	// +kubebuilder:validation:Optional
+	End *metav1.Time `json:"end"`
+
+	// Replicas is the number of replicas to use for the instance.
 	// +kubebuilder:validation:Optional
 	Replicas *int32 `json:"replicas"`
 

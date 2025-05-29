@@ -29,12 +29,12 @@ var _ = Describe("StatusReconciler", func() {
 
 	It("should set the status to not ready when not all replicas are ready", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
-		instance := v1alpha1.CTFd{
+		instance := AddDefaults(v1alpha1.CTFd{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-",
 				Namespace:    corev1.NamespaceDefault,
 			},
-		}
+		})
 		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
 		deployment := appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -79,12 +79,12 @@ var _ = Describe("StatusReconciler", func() {
 
 	It("should set the status to ready when all replicas are ready", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
-		instance := v1alpha1.CTFd{
+		instance := AddDefaults(v1alpha1.CTFd{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-",
 				Namespace:    corev1.NamespaceDefault,
 			},
-		}
+		})
 		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
 		deployment := appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{

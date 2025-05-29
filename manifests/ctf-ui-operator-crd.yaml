@@ -43,6 +43,29 @@ spec:
             spec:
               description: CTFdSpec defines the desired state of CTFd.
               properties:
+                accountVisibility:
+                  default: private
+                  description: AccountVisibility is the visibility for the accounts.
+                  enum:
+                    - public
+                    - private
+                    - admins
+                  type: string
+                challengeVisibility:
+                  default: private
+                  description: ChallengeVisibility is the visibility for the challenges.
+                  enum:
+                    - public
+                    - private
+                    - admins
+                  type: string
+                description:
+                  description: Description is the description for the CTF event.
+                  type: string
+                end:
+                  description: End is the end time of the event.
+                  format: date-time
+                  type: string
                 mariaDb:
                   description: MariaDB provides configuration specific to MariaDB.
                   properties:
@@ -811,7 +834,16 @@ spec:
                           type: object
                       type: object
                   type: object
+                registrationVisibility:
+                  default: private
+                  description: RegistrationVisibility is the visibility for the registration.
+                  enum:
+                    - public
+                    - private
+                    - mlc
+                  type: string
                 replicas:
+                  description: Replicas is the number of replicas to use for the instance.
                   format: int32
                   type: integer
                 resources:
@@ -873,10 +905,59 @@ spec:
                         More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                       type: object
                   type: object
+                scoreVisibility:
+                  default: private
+                  description: ScoreVisibility is the visibility for the scores.
+                  enum:
+                    - public
+                    - private
+                    - hidden
+                    - admins
+                  type: string
+                start:
+                  description: Start is the start time of the event.
+                  format: date-time
+                  type: string
+                teamSize:
+                  description: TeamSize specifies the maximum number of members in a team.
+                  type: integer
+                theme:
+                  default: core-beta
+                  description: Theme is the visual theme to use for the website.
+                  enum:
+                    - core-beta
+                    - core
+                  type: string
+                themeColor:
+                  description: ThemeColor is the primary color for the theme of the website defined as '#rrggbb'.
+                  type: string
+                title:
+                  description: Title is the title for the CTF event.
+                  type: string
+                userMode:
+                  default: teams
+                  description: UserMode is the user mode for the CTF event.
+                  enum:
+                    - teams
+                    - users
+                  type: string
+                verifyEmails:
+                  default: true
+                  description: VerifyEmails specifies if email addresses need to be verified.
+                  type: boolean
               required:
+                - accountVisibility
+                - challengeVisibility
+                - description
                 - mariaDb
                 - minio
                 - redis
+                - registrationVisibility
+                - scoreVisibility
+                - theme
+                - title
+                - userMode
+                - verifyEmails
               type: object
             status:
               description: CTFdStatus defines the observed state of CTFd.

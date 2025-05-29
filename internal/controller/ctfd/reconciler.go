@@ -25,14 +25,25 @@ func NewReconciler(client client.Client, options ...utils.ReconcilerOption[*v1al
 func WithDefaultReconcilers() utils.ReconcilerOption[*v1alpha1.CTFd] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
 		WithStatusReconciler()(reconciler)
+
 		WithMariaDBReconciler()(reconciler)
+		WithRedisReconciler()(reconciler)
 		WithMinioReconciler()(reconciler)
 		WithMinioBucketReconciler()(reconciler)
-		WithRedisReconciler()(reconciler)
+
 		WithServiceAccountReconciler()(reconciler)
 		WithServiceReconciler()(reconciler)
 		WithSecretReconciler()(reconciler)
 		WithDeploymentReconciler()(reconciler)
+
+		WithAdminSecretReconciler()(reconciler)
+		WithSetupReconciler()(reconciler)
+	}
+}
+
+func WithAdminSecretReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
+	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
+		reconciler.AppendSubReconciler(NewAdminSecretReconciler(reconciler.GetClient()))
 	}
 }
 
@@ -81,6 +92,12 @@ func WithServiceReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
 func WithServiceAccountReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
 		reconciler.AppendSubReconciler(NewServiceAccountReconciler(reconciler.GetClient()))
+	}
+}
+
+func WithSetupReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
+	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
+		reconciler.AppendSubReconciler(NewSetupReconciler(reconciler.GetClient()))
 	}
 }
 

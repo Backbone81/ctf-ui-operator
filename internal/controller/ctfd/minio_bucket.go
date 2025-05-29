@@ -24,22 +24,16 @@ import (
 // MinioBucketReconciler is responsible for creating the bucket for the CTFd instance.
 type MinioBucketReconciler struct {
 	utils.DefaultSubReconciler
-	minioEndpointStrategy MinioEndpointStrategy
-}
-
-// MinioEndpointStrategy describes the way to get the Minio endpoint. As we need to differentiate between running
-// in-cluster and running out-of-cluster, both strategies need to implement this interface.
-type MinioEndpointStrategy interface {
-	GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error)
+	endpointStrategy EndpointStrategy
 }
 
 // InClusterMinioEndpointStrategy returns an endpoint which is the service name and the port for in-cluster usage.
 type InClusterMinioEndpointStrategy struct{}
 
-var _ MinioEndpointStrategy = (*InClusterMinioEndpointStrategy)(nil)
+var _ EndpointStrategy = (*InClusterMinioEndpointStrategy)(nil)
 
 func (s *InClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	return MinioName(ctfd) + ":9000", nil
+	return fmt.Sprintf("%s.%s:80", MinioName(ctfd), ctfd.Namespace), nil
 }
 
 // OutOfClusterMinioEndpointStrategy port forwards the minio service to the local host and returns an endpoint with
@@ -48,7 +42,7 @@ type OutOfClusterMinioEndpointStrategy struct {
 	servicePortForwarder *utils.ServicePortForwarder
 }
 
-var _ MinioEndpointStrategy = (*OutOfClusterMinioEndpointStrategy)(nil)
+var _ EndpointStrategy = (*OutOfClusterMinioEndpointStrategy)(nil)
 
 func (s *OutOfClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
 	localPort, err := s.servicePortForwarder.PortForward(
@@ -66,18 +60,18 @@ func (s *OutOfClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctf
 }
 
 func NewMinioBucketReconciler(client client.Client) *MinioBucketReconciler {
-	var minioEndpointStrategy MinioEndpointStrategy
+	var endpointStrategy EndpointStrategy
 	if _, err := rest.InClusterConfig(); err != nil {
-		minioEndpointStrategy = &OutOfClusterMinioEndpointStrategy{
+		endpointStrategy = &OutOfClusterMinioEndpointStrategy{
 			servicePortForwarder: utils.NewServicePortForwarder(client),
 		}
 	} else {
-		minioEndpointStrategy = &InClusterMinioEndpointStrategy{}
+		endpointStrategy = &InClusterMinioEndpointStrategy{}
 	}
 
 	return &MinioBucketReconciler{
-		DefaultSubReconciler:  utils.NewDefaultSubReconciler(client),
-		minioEndpointStrategy: minioEndpointStrategy,
+		DefaultSubReconciler: utils.NewDefaultSubReconciler(client),
+		endpointStrategy:     endpointStrategy,
 	}
 }
 
@@ -145,7 +139,7 @@ func (r *MinioBucketReconciler) getMinio(ctx context.Context, ctfd *v1alpha1.CTF
 }
 
 func (r *MinioBucketReconciler) getMinioEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	return r.minioEndpointStrategy.GetEndpoint(ctx, ctfd)
+	return r.endpointStrategy.GetEndpoint(ctx, ctfd)
 }
 
 func (r *MinioBucketReconciler) getMinioCredentials(ctx context.Context, ctfd *v1alpha1.CTFd) (string, string, error) {

@@ -34,6 +34,6 @@ func SetupTestEnv() (*envtest.Environment, client.Client) {
 	k8sClient, err := client.New(cfg, client.Options{Scheme: clientgoscheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-	k8sClient = utils.NewLoggingClient(k8sClient, logger)
+	k8sClient = utils.NewLoggingClient(k8sClient)
 	return testEnv, k8sClient
 }

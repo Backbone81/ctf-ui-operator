@@ -121,3 +121,26 @@ func SetMinioReady(ctx context.Context, instance *v1alpha1.CTFd, ready bool) err
 	minio.Status.Ready = ready
 	return k8sClient.Status().Update(ctx, &minio)
 }
+
+// AddDefaults sets default values to spec fields if they are not set. This is necessary for tests, as envtest does not
+// set default values automatically as specified in the CRD. Full-blown Kubernetes API servers are filling in the
+// defaults correctly.
+func AddDefaults(ctfd v1alpha1.CTFd) v1alpha1.CTFd {
+	addDefaultString(&ctfd.Spec.Title, "Demo CTF")
+	addDefaultString(&ctfd.Spec.Description, "This is a demo CTF.")
+	addDefaultString(&ctfd.Spec.UserMode, "teams")
+	addDefaultString(&ctfd.Spec.ChallengeVisibility, "private")
+	addDefaultString(&ctfd.Spec.AccountVisibility, "private")
+	addDefaultString(&ctfd.Spec.ScoreVisibility, "private")
+	addDefaultString(&ctfd.Spec.RegistrationVisibility, "private")
+	addDefaultString(&ctfd.Spec.Theme, "core-beta")
+	return ctfd
+}
+
+func addDefaultString(text *string, defaultText string) {
+	if len(*text) != 0 {
+		// We do not overwrite if the value is already set.
+		return
+	}
+	*text = defaultText
+}

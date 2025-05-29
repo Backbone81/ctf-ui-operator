@@ -4,6 +4,19 @@ kind: CTFd
 metadata:
   name: ctfd-sample
 spec:
+  title: Demo CTF
+  description: This is a demo CTF.
+  userMode: teams
+  challengeVisibility: private
+  accountVisibility: private
+  scoreVisibility: private
+  registrationVisibility: private
+  verifyEmails: true
+  teamSize: 5
+  theme: core-beta
+  themeColor:
+  start:
+  end:
   replicas: 1
   resources:
     requests:
