@@ -39,6 +39,7 @@ test: lint ## Run tests.
 
 .PHONY: test-e2e
 test-e2e: docker-build kuttl/setup/setup.yaml ## Run end-to-end tests.
+	cat kuttl/setup/setup.yaml
 	kubectl kuttl test --config kuttl/kuttl-test.yaml
 
 ##@ Build
