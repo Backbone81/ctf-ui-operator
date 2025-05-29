@@ -1,0 +1,13 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+timeout: 300
+startKIND: true
+kindContext: kuttl-tests
+kindContainers:
+  - backbone81/ctf-ui-operator:local
+artifactsDir: tmp
+manifestDirs:
+  - kuttl/setup
+testDirs:
+  - kuttl/tests

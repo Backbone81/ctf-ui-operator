@@ -37,6 +37,10 @@ test: lint ## Run tests.
 	ginkgo run -p --race --coverprofile cover.out --output-dir ./tmp $(PACKAGE)
 	go tool cover -html=tmp/cover.out -o tmp/cover.html
 
+.PHONY: test-e2e
+test-e2e: docker-build kuttl/setup/setup.yaml ## Run end-to-end tests.
+	kubectl kuttl test --config kuttl/kuttl-test.yaml
+
 ##@ Build
 
 .PHONY: build
@@ -44,7 +48,7 @@ build: lint ## Build the operator binary.
 	go build ./cmd/ctf-ui-operator
 
 .PHONY: docker-build
-docker-build: ## Build the operator docker image.
+docker-build: lint ## Build the operator docker image.
 	docker build -t $(DOCKER_IMAGE) .
 
 .PHONY: clean
@@ -91,8 +95,11 @@ manifests/kustomization.yaml: $(V1ALPHA1_CRD_FILE) $(V1ALPHA1_CLUSTERROLE_FILE) 
 	cd manifests && kustomize create --autodetect
 	for f in manifests/*.yaml; do yq --prettyPrint --inplace "$$f"; done
 
+kuttl/setup/setup.yaml: $(wildcard manifests/*.yaml)
+	kustomize build manifests > $@
+
 .PHONY: generate
-generate: $(V1ALPHA1_DEEPCOPY_FILE) $(V1ALPHA1_CRD_FILE) $(V1ALPHA1_CLUSTERROLE_FILE) manifests/kustomization.yaml
+generate: $(V1ALPHA1_DEEPCOPY_FILE) $(V1ALPHA1_CRD_FILE) $(V1ALPHA1_CLUSTERROLE_FILE) manifests/kustomization.yaml kuttl/setup/setup.yaml
 
 .PHONY: prepare
 prepare: generate

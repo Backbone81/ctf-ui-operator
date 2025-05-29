@@ -33,7 +33,7 @@ type InClusterMinioEndpointStrategy struct{}
 var _ EndpointStrategy = (*InClusterMinioEndpointStrategy)(nil)
 
 func (s *InClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	return fmt.Sprintf("%s.%s:80", MinioName(ctfd), ctfd.Namespace), nil
+	return fmt.Sprintf("%s.%s:9000", MinioName(ctfd), ctfd.Namespace), nil
 }
 
 // OutOfClusterMinioEndpointStrategy port forwards the minio service to the local host and returns an endpoint with

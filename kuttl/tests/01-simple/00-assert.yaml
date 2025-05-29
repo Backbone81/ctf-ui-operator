@@ -1,0 +1,46 @@
+---
+apiVersion: ui.ctf.backbone81/v1alpha1
+kind: MariaDB
+metadata:
+  name: ctfd-sample-mariadb
+status:
+  ready: true
+---
+apiVersion: ui.ctf.backbone81/v1alpha1
+kind: Minio
+metadata:
+  name: ctfd-sample-minio
+status:
+  ready: true
+---
+apiVersion: ui.ctf.backbone81/v1alpha1
+kind: Redis
+metadata:
+  name: ctfd-sample-redis
+status:
+  ready: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ctfd-sample
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ctfd-sample
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ctfd-sample-admin
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ctfd-sample

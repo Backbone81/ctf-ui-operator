@@ -1,0 +1,8 @@
+---
+apiVersion: ui.ctf.backbone81/v1alpha1
+kind: CTFd
+metadata:
+  name: ctfd-sample
+spec:
+  title: Demo CTF
+  description: This is a demo CTF.

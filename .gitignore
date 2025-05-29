@@ -33,3 +33,6 @@ go.work.sum
 
 # Binaries which are build by this project
 /ctf-ui-operator
+
+# The kubeconfig kuttl creates when not deleting the cluster
+kubeconfig

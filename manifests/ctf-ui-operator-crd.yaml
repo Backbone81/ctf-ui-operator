@@ -15,13 +15,16 @@ spec:
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
+        - jsonPath: .status.ready
+          name: Ready
+          type: boolean
         - jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: CTFd is the Schema for the apikeys API.
+          description: CTFd is the Schema for the CTFd.
           properties:
             apiVersion:
               description: |-
@@ -949,9 +952,6 @@ spec:
                 - accountVisibility
                 - challengeVisibility
                 - description
-                - mariaDb
-                - minio
-                - redis
                 - registrationVisibility
                 - scoreVisibility
                 - theme

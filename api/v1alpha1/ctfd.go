@@ -81,12 +81,15 @@ type CTFdSpec struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// Redis provides configuration specific to Redis.
+	// +kubebuilder:validation:Optional
 	Redis RedisSpec `json:"redis"`
 
 	// MariaDB provides configuration specific to MariaDB.
+	// +kubebuilder:validation:Optional
 	MariaDB MariaDBSpec `json:"mariaDb"`
 
 	// Minio provides configuration specific to Minio.
+	// +kubebuilder:validation:Optional
 	Minio MinioSpec `json:"minio"`
 }
 
@@ -98,9 +101,10 @@ type CTFdStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="boolean",JSONPath=".status.ready"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// CTFd is the Schema for the apikeys API.
+// CTFd is the Schema for the CTFd.
 type CTFd struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
