@@ -3,9 +3,6 @@
 
 version: 2
 
-source:
-  enabled: false
-
 builds:
   - skip: true
 
