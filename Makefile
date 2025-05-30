@@ -96,10 +96,12 @@ manifests/kustomization.yaml: $(V1ALPHA1_CRD_FILE) $(V1ALPHA1_CLUSTERROLE_FILE) 
 	for f in manifests/*.yaml; do yq --prettyPrint --inplace "$$f"; done
 
 kuttl/setup/setup.yaml: $(wildcard manifests/*.yaml)
-	# We need to trigger kustomize once, to make sure it is downloaded on-the-fly. If we do not do that, the install
-	# message will also be redirected to the file which breaks the yaml manifest.
-	kustomize version
-	kustomize build manifests > $@
+	# We copy the manifests into the tmp folder and modify the image tag there to prevent us from accidentally
+	# committing the modified kustomization in the manifests directory.
+	rm -rf tmp/manifests
+	cp -r manifests tmp/manifests
+	cd tmp/manifests && kustomize edit set image backbone81/ctf-ui-operator=$(DOCKER_IMAGE)
+	kustomize build tmp/manifests > $@
 
 .PHONY: generate
 generate: $(V1ALPHA1_DEEPCOPY_FILE) $(V1ALPHA1_CRD_FILE) $(V1ALPHA1_CLUSTERROLE_FILE) manifests/kustomization.yaml kuttl/setup/setup.yaml
