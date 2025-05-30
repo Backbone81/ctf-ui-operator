@@ -99,6 +99,7 @@ kuttl/setup/setup.yaml: $(wildcard manifests/*.yaml)
 	# We copy the manifests into the tmp folder and modify the image tag there to prevent us from accidentally
 	# committing the modified kustomization in the manifests directory.
 	rm -rf tmp/manifests
+	mkdir -p tmp
 	cp -r manifests tmp/manifests
 	cd tmp/manifests && kustomize edit set image backbone81/ctf-ui-operator=$(DOCKER_IMAGE)
 	kustomize build tmp/manifests > $@
