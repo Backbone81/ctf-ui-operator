@@ -4,6 +4,7 @@ kind: TestSuite
 timeout: 300
 startKIND: true
 kindContext: kuttl-tests
+kindConfig: scripts/kind-config.yaml
 kindContainers:
   - backbone81/ctf-ui-operator:local
 artifactsDir: tmp

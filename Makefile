@@ -39,7 +39,6 @@ test: lint ## Run tests.
 
 .PHONY: test-e2e
 test-e2e: docker-build kuttl/setup/setup.yaml ## Run end-to-end tests.
-	cat kuttl/setup/setup.yaml
 	kubectl kuttl test --config kuttl/kuttl-test.yaml
 
 ##@ Build
@@ -97,6 +96,9 @@ manifests/kustomization.yaml: $(V1ALPHA1_CRD_FILE) $(V1ALPHA1_CLUSTERROLE_FILE) 
 	for f in manifests/*.yaml; do yq --prettyPrint --inplace "$$f"; done
 
 kuttl/setup/setup.yaml: $(wildcard manifests/*.yaml)
+	# We need to trigger kustomize once, to make sure it is downloaded on-the-fly. If we do not do that, the install
+	# message will also be redirected to the file which breaks the yaml manifest.
+	kustomize version
 	kustomize build manifests > $@
 
 .PHONY: generate
