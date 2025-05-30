@@ -36,3 +36,5 @@ go.work.sum
 
 # The kubeconfig kuttl creates when not deleting the cluster
 kubeconfig
+# Added by goreleaser init:
+dist/

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+builds:
+  - skip: true
+
+dockers:
+  - image_templates:
+      - backbone81/ctf-ui-operator:v{{.Major}}
+      - backbone81/ctf-ui-operator:v{{.Major}}.{{.Minor}}
+      - backbone81/ctf-ui-operator:v{{.Major}}.{{.Minor}}.{{.Patch}}
+      - backbone81/ctf-ui-operator:latest
+    extra_files:
+      - api/
+      - bin/
+      - cmd/
+      - internal/
+      - kuttl/
+      - manifests/
+      - scripts/
+      - .dockerignore
+      - Dockerfile
+      - go.mod
+      - go.sum
+      - Makefile
