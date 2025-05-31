@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	ctfdImage     = "ctfd/ctfd:3.7.6"
+	Image         = "ctfd/ctfd:3.7.6"
 	tmpVolumeName = "tmp"
 )
 
@@ -118,7 +118,7 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(ctfd *v1alpha1.CTFd) (*a
 					Containers: []corev1.Container{
 						{
 							Name:  "ctfd",
-							Image: ctfdImage,
+							Image: Image,
 							SecurityContext: ptr.To(corev1.SecurityContext{
 								ReadOnlyRootFilesystem:   ptr.To(true),
 								AllowPrivilegeEscalation: ptr.To(false),
