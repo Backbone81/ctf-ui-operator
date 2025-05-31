@@ -164,6 +164,30 @@ var _ = Describe("Setup", func() {
 		Entry("when teams are large", ptr.To(16)),
 	)
 
+	It("should fail without an admin name", func(ctx SpecContext) {
+		setupRequest := GetDefaultSetupRequest()
+		setupRequest.Name = ""
+		Expect(ctfdClient.Setup(ctx, setupRequest)).ToNot(Succeed())
+	})
+
+	It("should fail without an admin email", func(ctx SpecContext) {
+		setupRequest := GetDefaultSetupRequest()
+		setupRequest.Email = ""
+		Expect(ctfdClient.Setup(ctx, setupRequest)).ToNot(Succeed())
+	})
+
+	It("should fail with an invalid admin email", func(ctx SpecContext) {
+		setupRequest := GetDefaultSetupRequest()
+		setupRequest.Email = "invalid"
+		Expect(ctfdClient.Setup(ctx, setupRequest)).ToNot(Succeed())
+	})
+
+	It("should fail without an admin password", func(ctx SpecContext) {
+		setupRequest := GetDefaultSetupRequest()
+		setupRequest.Password = ""
+		Expect(ctfdClient.Setup(ctx, setupRequest)).ToNot(Succeed())
+	})
+
 	DescribeTable("should accept all possible themes",
 		func(ctx SpecContext, ctfTheme ctfdapi.CTFTheme) {
 			setupRequest := GetDefaultSetupRequest()

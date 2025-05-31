@@ -25,10 +25,40 @@ func TestReconciler(t *testing.T) {
 	RunSpecs(t, "CTFd API Suite")
 }
 
-var _ = BeforeSuite(func() {
+var (
+	container   testcontainers.Container
+	endpointUrl string
+	accessToken string
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	var err error
+	container, err = NewTestContainer(ctx)
+	Expect(err).ToNot(HaveOccurred())
+
+	endpoint, err := container.Endpoint(ctx, "")
+	Expect(err).ToNot(HaveOccurred())
+	endpointUrl = "http://" + endpoint
+
+	ctfdClient, err := ctfdapi.NewClient(endpointUrl, "")
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(ctfdClient.Setup(ctx, GetDefaultSetupRequest())).To(Succeed())
+
+	Expect(ctfdClient.Login(ctx, ctfdapi.LoginRequest{
+		Name:     AdminName,
+		Password: AdminPassword,
+	})).To(Succeed())
+	createTokenResponse, err := ctfdClient.CreateToken(ctx, ctfdapi.CreateTokenRequest{
+		Description: "test",
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(createTokenResponse.Data.Value).ToNot(BeZero())
+	accessToken = createTokenResponse.Data.Value
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
+	Expect(container.Terminate(ctx)).To(Succeed())
 })
 
 func NewTestContainer(ctx context.Context) (testcontainers.Container, error) {
