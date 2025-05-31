@@ -22,7 +22,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: manager
-          image: backbone81/ctf-ui-operator:local
+          image: backbone81/ctf-ui-operator:v0.1.0
           command:
             - /ctf-ui-operator
           args:

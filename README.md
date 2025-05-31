@@ -1,24 +1,65 @@
 # ctf-ui-operator
 
-TODO
+ctf-ui-operator is a Kubernetes operator designed to automate the deployment and management of Capture The Flag (CTF)
+web UIs within a Kubernetes cluster. It is intended to be used together with the
+[ctf-challenge-operator](https://github.com/Backbone81/ctf-challenge-operator) to automatically configure the CTF
+challenges for the web UI.
+
+It currently provisions [CTFd](https://github.com/CTFd/CTFd) with all its dependencies (Redis, MariaDB, Minio) providing
+a quick and easy solution for running a CTF event.
 
 **NOTE: This project is currently in early development and is not yet in a state to be actually used in a CTF event
 or even in a proof-of-concept situation.**
 
 ## Description
 
-TODO
+This project provides one Kubernetes custom resource definition to help with running a CTF event:
+
+- `CTFd`: This resource describes a single CTFd instance and its initial configuration.
+
+**NOTE: There are other CRDs like `Redis`, `MariaDB` or `Minio` which are dependencies for `CTFd`. Those are not
+intended to be used directly.**
 
 ## Getting Started
 
 To deploy this operator into your Kubernetes cluster:
 
 ```shell
-kubectl apply -k https://github.com/backbone81/ctf-ui-operator/manifests?ref=main
+kubectl apply -k https://github.com/backbone81/ctf-ui-operator/manifests?ref=v0.1.0
 ```
 
-**NOTE: As there is not yet a real release of this operator, the docker image referenced in that manifest does not
-exist yet.**
+To deploy a new instance of `CTFd` create a yaml manifest `ctfd-sample.yaml`:
+
+```yaml
+---
+apiVersion: ui.ctf.backbone81/v1alpha1
+kind: CTFd
+metadata:
+  name: ctfd-sample
+spec:
+  title: Demo CTF
+  description: This is a demo CTF.
+```
+
+Apply this manifest to your cluster:
+
+```shell
+kubectl apply -f ctfd-sample.yaml
+```
+
+The first startup might need a few minutes to pull all the necessary docker images.
+
+Port-forward the service of your instance:
+
+```shell
+kubectl port-forward svc/ctfd-sample 3000:http
+```
+
+Log into your instance with the admin credentials stored in the secret `ctfd-sample-admin`.
+
+For a production deployment, you probably want to provide an Ingress for your instance, which is out of scope of this
+operator. You also might want to tweak the settings of your instance. See `examples/crd-sample.yaml` for a more
+elaborate setup or `api/v1alpha1/ctfd.go` for details on all the available settings.
 
 ### Operator Command Line Parameters
 
@@ -83,6 +124,12 @@ To run the tests:
 make test
 ```
 
+To run the end-to-end tests:
+
+```shell
+make test-e2e
+```
+
 If you changed the data types of the custom resources, you can install the updated version with:
 
 ```shell
@@ -105,3 +152,28 @@ your `PATH` environment variable like this:
 ```shell
 export PATH=${PWD}/bin:${PATH}
 ```
+
+### Building a Release
+
+To build a new release:
+
+- Pick the next version to use as a git tag and a docker image tag. This should be `v` followed by a semantic version.
+  Let's assume `v1.2.3` as an example for the new version.
+- Update the docker image in the manifests subdirectory to the new docker image tag for the version. That would be
+  `backbone81/ctf-ui-operator:v1.2.3`.
+- Update the git tag in the installation section of the README.md to the new release.
+- Clean up your local development environment and run the tests and end-to-end tests locally:
+  ```shell
+  make clean
+  make test
+  make test-e2e
+  ```
+  If anything fails, fix the errors.
+- Commit and push your changes. Wait for the pipeline to succeed. If the pipeline fails, fix the errors.
+- Create a git tag for the release and push the tag:
+  ```shell
+  git tag v1.2.3
+  git push origin v1.2.3
+  ```
+- Wait for the pipeline to succeed and publish the new docker image. If the pipeline fails, fix the errors and create
+  a new release. Do not delete the old release.
