@@ -10,11 +10,13 @@ import (
 )
 
 type Client struct {
-	baseUrl *url.URL
-	client  *http.Client
+	baseUrl     *url.URL
+	client      *http.Client
+	accessToken string
+	csrfToken   string
 }
 
-func NewClient(baseUrl string) (*Client, error) {
+func NewClient(baseUrl string, accessToken string) (*Client, error) {
 	parsedBaseUrl, err := url.Parse(baseUrl)
 	if err != nil {
 		return nil, fmt.Errorf("parsing base URL: %w", err)
@@ -36,8 +38,9 @@ func NewClient(baseUrl string) (*Client, error) {
 		},
 	}
 	return &Client{
-		baseUrl: parsedBaseUrl,
-		client:  httpClient,
+		baseUrl:     parsedBaseUrl,
+		client:      httpClient,
+		accessToken: accessToken,
 	}, nil
 }
 

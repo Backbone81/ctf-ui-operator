@@ -3,12 +3,10 @@ package ctfdapi
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"regexp"
 	"strconv"
 	"time"
 )
@@ -129,7 +127,7 @@ func (c *Client) SetupRequired(ctx context.Context) (bool, error) {
 // Setup initializes the CTFd instance. This request is special, as there is no REST API endpoint for setup. Instead,
 // we are interacting with the HTML site and send form fields as required.
 func (c *Client) Setup(ctx context.Context, setupRequest SetupRequest) error {
-	nonce, err := c.setupGetNonce(ctx)
+	nonce, err := c.getNonce(ctx, setupPath)
 	if err != nil {
 		return fmt.Errorf("getting nonce: %w", err)
 	}
@@ -139,44 +137,9 @@ func (c *Client) Setup(ctx context.Context, setupRequest SetupRequest) error {
 	return nil
 }
 
-var nonceRegex = regexp.MustCompile(`<input id="nonce" name="nonce" type="hidden" value="([^"]+)">`)
-
-// setupGetNonce executes a GET request on the setup endpoint and extracts the nonce from the hidden field of the HTML.
-// The nonce is required for sending a POST request. Otherwise, the website will reject the request.
-func (c *Client) setupGetNonce(ctx context.Context) (string, error) {
-	targetUrl, err := c.getTargetUrl(setupPath)
-	if err != nil {
-		return "", err
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, targetUrl, nil)
-	if err != nil {
-		return "", fmt.Errorf("creating new HTTP request: %w", err)
-	}
-
-	response, err := c.client.Do(request)
-	if err != nil {
-		return "", fmt.Errorf("executing HTTP request: %w", err)
-	}
-	defer response.Body.Close() //nolint:errcheck
-
-	pageData, err := io.ReadAll(response.Body)
-	if err != nil {
-		return "", fmt.Errorf("reading response body: %w", err)
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code %d: %s", response.StatusCode, response.Status)
-	}
-
-	matches := nonceRegex.FindSubmatch(pageData)
-	if len(matches) != 2 {
-		return "", errors.New("nonce not found in HTML")
-	}
-	return string(matches[1]), nil
-}
-
 // setupSendForm constructs a POST request to the setup endpoint with the configuration provided by the SetupRequest.
+//
+//nolint:dupl
 func (c *Client) setupSendForm(ctx context.Context, setupRequest SetupRequest, nonce string) error {
 	targetUrl, err := c.getTargetUrl(setupPath)
 	if err != nil {

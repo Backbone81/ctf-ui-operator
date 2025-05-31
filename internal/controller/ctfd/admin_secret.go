@@ -119,9 +119,10 @@ func AdminSecretName(ctfd *v1alpha1.CTFd) string {
 }
 
 type AdminDetails struct {
-	Name     string
-	Email    string
-	Password string
+	Name        string
+	Email       string
+	Password    string
+	AccessToken string
 }
 
 func GetAdminDetails(ctx context.Context, k8sClient client.Client, ctfd *v1alpha1.CTFd) (AdminDetails, error) {
@@ -143,8 +144,9 @@ func GetAdminDetails(ctx context.Context, k8sClient client.Client, ctfd *v1alpha
 		return AdminDetails{}, errors.New("password is empty in admin secret")
 	}
 	return AdminDetails{
-		Name:     string(secret.Data["name"]),
-		Email:    string(secret.Data["email"]),
-		Password: string(secret.Data["password"]),
+		Name:        string(secret.Data["name"]),
+		Email:       string(secret.Data["email"]),
+		Password:    string(secret.Data["password"]),
+		AccessToken: string(secret.Data["token"]),
 	}, nil
 }

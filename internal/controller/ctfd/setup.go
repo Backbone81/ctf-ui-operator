@@ -48,7 +48,7 @@ func (r *SetupReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CTFd) (c
 		return ctrl.Result{}, err
 	}
 
-	ctfdClient, err := ctfdapi.NewClient(endpoint)
+	ctfdClient, err := ctfdapi.NewClient(endpoint, "")
 	if err != nil {
 		return ctrl.Result{}, err
 	}
