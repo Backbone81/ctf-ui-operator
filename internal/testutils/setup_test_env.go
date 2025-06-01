@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"go.uber.org/zap/zapcore"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -19,7 +20,7 @@ func SetupTestEnv() (*envtest.Environment, client.Client) {
 	Expect(MoveToProjectRoot()).To(Succeed())
 	Expect(MakeBinDirAvailable()).To(Succeed())
 
-	logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+	logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.Level(-10)))
 	ctrllog.SetLogger(logger)
 
 	testEnv := &envtest.Environment{

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	minioImage     = "minio/minio:RELEASE.2025-04-22T22-12-26Z"
+	Image          = "minio/minio:RELEASE.2025-04-22T22-12-26Z"
 	tmpVolumeName  = "tmp"
 	dataVolumeName = "data"
 )
@@ -122,7 +122,7 @@ func (r *DeploymentReconciler) getDesiredDeploymentSpec(minio *v1alpha1.Minio) (
 					Containers: []corev1.Container{
 						{
 							Name:  "minio",
-							Image: minioImage,
+							Image: Image,
 							Args: []string{
 								"server",
 								"--address=:9000",

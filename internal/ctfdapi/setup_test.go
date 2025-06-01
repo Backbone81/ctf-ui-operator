@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/backbone81/ctf-ui-operator/internal/ctfdapi"
+	"github.com/backbone81/ctf-ui-operator/internal/testutils"
 )
 
 var _ = Describe("Setup", func() {
@@ -21,7 +22,7 @@ var _ = Describe("Setup", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		var err error
-		container, err = NewTestContainer(ctx)
+		container, err = testutils.NewCTFdTestContainer(ctx)
 		Expect(err).ToNot(HaveOccurred())
 
 		endpoint, err := container.Endpoint(ctx, "")

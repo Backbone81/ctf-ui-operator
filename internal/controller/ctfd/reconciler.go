@@ -29,7 +29,7 @@ func WithDefaultReconcilers() utils.ReconcilerOption[*v1alpha1.CTFd] {
 		WithMariaDBReconciler()(reconciler)
 		WithRedisReconciler()(reconciler)
 		WithMinioReconciler()(reconciler)
-		WithMinioBucketReconciler()(reconciler)
+		WithMinioBucketReconciler(WithMinioAutodetectEndpoint())(reconciler)
 
 		WithServiceAccountReconciler()(reconciler)
 		WithServiceReconciler()(reconciler)
@@ -37,14 +37,14 @@ func WithDefaultReconcilers() utils.ReconcilerOption[*v1alpha1.CTFd] {
 		WithDeploymentReconciler()(reconciler)
 
 		WithAdminSecretReconciler()(reconciler)
-		WithSetupReconciler()(reconciler)
-		WithAccessTokenReconciler()(reconciler)
+		WithSetupReconciler(WithCTFdAutodetectEndpoint())(reconciler)
+		WithAccessTokenReconciler(WithCTFdAutodetectEndpoint())(reconciler)
 	}
 }
 
-func WithAccessTokenReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
+func WithAccessTokenReconciler(options ...SubReconcilerOption) utils.ReconcilerOption[*v1alpha1.CTFd] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
-		reconciler.AppendSubReconciler(NewAccessTokenReconciler(reconciler.GetClient()))
+		reconciler.AppendSubReconciler(NewAccessTokenReconciler(reconciler.GetClient(), options...))
 	}
 }
 
@@ -72,9 +72,9 @@ func WithMinioReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
 	}
 }
 
-func WithMinioBucketReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
+func WithMinioBucketReconciler(options ...SubReconcilerOption) utils.ReconcilerOption[*v1alpha1.CTFd] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
-		reconciler.AppendSubReconciler(NewMinioBucketReconciler(reconciler.GetClient()))
+		reconciler.AppendSubReconciler(NewMinioBucketReconciler(reconciler.GetClient(), options...))
 	}
 }
 
@@ -102,9 +102,9 @@ func WithServiceAccountReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
 	}
 }
 
-func WithSetupReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
+func WithSetupReconciler(options ...SubReconcilerOption) utils.ReconcilerOption[*v1alpha1.CTFd] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
-		reconciler.AppendSubReconciler(NewSetupReconciler(reconciler.GetClient()))
+		reconciler.AppendSubReconciler(NewSetupReconciler(reconciler.GetClient(), options...))
 	}
 }
 

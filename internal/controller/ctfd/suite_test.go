@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/testcontainers/testcontainers-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,25 +15,59 @@ import (
 
 	"github.com/backbone81/ctf-ui-operator/api/v1alpha1"
 	"github.com/backbone81/ctf-ui-operator/internal/controller/ctfd"
+	"github.com/backbone81/ctf-ui-operator/internal/ctfdapi"
 	"github.com/backbone81/ctf-ui-operator/internal/testutils"
+)
+
+const (
+	AdminName     = "admin"
+	AdminEmail    = "admin@ctfd.internal"
+	AdminPassword = "admin123"
 )
 
 var (
 	testEnv   *envtest.Environment
 	k8sClient client.Client
+
+	container   testcontainers.Container
+	endpointUrl string
 )
 
 func TestReconciler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ctfd Suite")
+	RunSpecs(t, "CTFd Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	testEnv, k8sClient = testutils.SetupTestEnv()
+
+	var err error
+	container, err = testutils.NewCTFdTestContainer(ctx)
+	Expect(err).ToNot(HaveOccurred())
+
+	endpoint, err := container.Endpoint(ctx, "")
+	Expect(err).ToNot(HaveOccurred())
+	endpointUrl = "http://" + endpoint
+
+	ctfdClient, err := ctfdapi.NewClient(endpointUrl, "")
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(ctfdClient.Setup(ctx, GetDefaultSetupRequest())).To(Succeed())
+
+	Expect(ctfdClient.Login(ctx, ctfdapi.LoginRequest{
+		Name:     AdminName,
+		Password: AdminPassword,
+	})).To(Succeed())
+	createTokenResponse, err := ctfdClient.CreateToken(ctx, ctfdapi.CreateTokenRequest{
+		Description: "test",
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(createTokenResponse.Data.Value).ToNot(BeZero())
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterSuite(func(ctx SpecContext) {
 	Expect(testEnv.Stop()).To(Succeed())
+	Expect(container.Terminate(ctx)).To(Succeed())
 })
 
 func DeleteAllInstances(ctx context.Context) {
@@ -66,11 +101,29 @@ func CreateRequiredThirdPartySecrets(ctx context.Context, instance *v1alpha1.CTF
 			Namespace: instance.Namespace,
 		},
 		StringData: map[string]string{
-			"MINIO_ROOT_USER":     "minio-user",
-			"MINIO_ROOT_PASSWORD": "minio-password",
+			"MINIO_ROOT_USER":     testutils.MinioUser,
+			"MINIO_ROOT_PASSWORD": testutils.MinioPassword,
 		},
 	}
 	if err := k8sClient.Create(ctx, &minioSecret); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreateAdminSecret(ctx context.Context, instance *v1alpha1.CTFd) error {
+	adminSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ctfd.AdminSecretName(instance),
+			Namespace: instance.Namespace,
+		},
+		Data: map[string][]byte{
+			"name":     []byte(AdminName),
+			"email":    []byte(AdminEmail),
+			"password": []byte(AdminPassword),
+		},
+	}
+	if err := k8sClient.Create(ctx, &adminSecret); err != nil {
 		return err
 	}
 	return nil
@@ -143,4 +196,69 @@ func addDefaultString(text *string, defaultText string) {
 		return
 	}
 	*text = defaultText
+}
+
+func GetDefaultSetupRequest() ctfdapi.SetupRequest {
+	return ctfdapi.SetupRequest{
+		CTFName:                "Test CTF",
+		CTFDescription:         "This is a test CTF.",
+		UserMode:               ctfdapi.UserModeTeams,
+		ChallengeVisibility:    ctfdapi.ChallengeVisibilityPrivate,
+		AccountVisibility:      ctfdapi.AccountVisibilityPrivate,
+		ScoreVisibility:        ctfdapi.ScoreVisibilityPrivate,
+		RegistrationVisibility: ctfdapi.RegistrationVisibilityPrivate,
+		VerifyEmails:           true,
+		TeamSize:               nil,
+		Name:                   AdminName,
+		Email:                  AdminEmail,
+		Password:               AdminPassword,
+		CTFTheme:               ctfdapi.CTFThemeCoreBeta,
+		ThemeColor:             nil,
+		Start:                  nil,
+		End:                    nil,
+	}
+}
+
+type TestCTFdEndpointStrategy struct {
+	endpointUrl string
+}
+
+var _ ctfd.CTFdEndpointStrategy = (*TestCTFdEndpointStrategy)(nil)
+
+func (s *TestCTFdEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
+	return s.endpointUrl, nil
+}
+
+func WithCTFdTestEndpoint(endpointUrl string) ctfd.SubReconcilerOption {
+	return func(subReconciler any) {
+		endpointSetter, ok := subReconciler.(ctfd.CTFdEndpointSetter)
+		if !ok {
+			panic("this option requires the sub reconciler to implement the CTFdEndpointSetter interface")
+		}
+		endpointSetter.SetCTFdEndpoint(&TestCTFdEndpointStrategy{
+			endpointUrl: endpointUrl,
+		})
+	}
+}
+
+type TestMinioEndpointStrategy struct {
+	endpointUrl string
+}
+
+var _ ctfd.MinioEndpointStrategy = (*TestMinioEndpointStrategy)(nil)
+
+func (s *TestMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
+	return s.endpointUrl, nil
+}
+
+func WithMinioTestEndpoint(endpointUrl string) ctfd.SubReconcilerOption {
+	return func(subReconciler any) {
+		endpointSetter, ok := subReconciler.(ctfd.MinioEndpointSetter)
+		if !ok {
+			panic("this option requires the sub reconciler to implement the MinioEndpointSetter interface")
+		}
+		endpointSetter.SetMinioEndpoint(&TestMinioEndpointStrategy{
+			endpointUrl: endpointUrl,
+		})
+	}
 }

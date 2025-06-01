@@ -3,14 +3,10 @@ package ctfd
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,55 +20,21 @@ import (
 // MinioBucketReconciler is responsible for creating the bucket for the CTFd instance.
 type MinioBucketReconciler struct {
 	utils.DefaultSubReconciler
-	endpointStrategy EndpointStrategy
+	minioEndpoint MinioEndpointStrategy
 }
 
-// InClusterMinioEndpointStrategy returns an endpoint which is the service name and the port for in-cluster usage.
-type InClusterMinioEndpointStrategy struct{}
-
-var _ EndpointStrategy = (*InClusterMinioEndpointStrategy)(nil)
-
-func (s *InClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	return fmt.Sprintf("%s.%s:9000", MinioName(ctfd), ctfd.Namespace), nil
-}
-
-// OutOfClusterMinioEndpointStrategy port forwards the minio service to the local host and returns an endpoint with
-// that forwarded port. The local port is a random free port.
-type OutOfClusterMinioEndpointStrategy struct {
-	servicePortForwarder *utils.ServicePortForwarder
-}
-
-var _ EndpointStrategy = (*OutOfClusterMinioEndpointStrategy)(nil)
-
-func (s *OutOfClusterMinioEndpointStrategy) GetEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	localPort, err := s.servicePortForwarder.PortForward(
-		ctx,
-		types.NamespacedName{
-			Namespace: ctfd.Namespace,
-			Name:      MinioName(ctfd),
-		},
-		intstr.FromString("minio"),
-	)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("127.0.0.1:%d", localPort), nil
-}
-
-func NewMinioBucketReconciler(client client.Client) *MinioBucketReconciler {
-	var endpointStrategy EndpointStrategy
-	if _, err := rest.InClusterConfig(); err != nil {
-		endpointStrategy = &OutOfClusterMinioEndpointStrategy{
-			servicePortForwarder: utils.NewServicePortForwarder(client),
-		}
-	} else {
-		endpointStrategy = &InClusterMinioEndpointStrategy{}
-	}
-
-	return &MinioBucketReconciler{
+func NewMinioBucketReconciler(client client.Client, options ...SubReconcilerOption) *MinioBucketReconciler {
+	result := &MinioBucketReconciler{
 		DefaultSubReconciler: utils.NewDefaultSubReconciler(client),
-		endpointStrategy:     endpointStrategy,
 	}
+	for _, option := range options {
+		option(result)
+	}
+
+	if result.minioEndpoint == nil {
+		panic("Minio endpoint strategy required")
+	}
+	return result
 }
 
 func (r *MinioBucketReconciler) SetupWithManager(ctrlBuilder *builder.Builder) *builder.Builder {
@@ -86,12 +48,14 @@ func (r *MinioBucketReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CT
 	}
 	if currentSpec == nil {
 		// The minio instance is not available yet. We will get triggered later again.
+		ctrl.LoggerFrom(ctx).V(1).Info("Minio not found, skipping MinioBucketReconciler.")
 		return ctrl.Result{}, nil
 	}
 
 	if !currentSpec.Status.Ready {
 		// The Minio instance is not ready. We try again later when the instance is up and running. The next reconcile
 		// will be triggered when the status changes.
+		ctrl.LoggerFrom(ctx).V(1).Info("Minio is not ready, skipping MinioBucketReconciler.")
 		return ctrl.Result{}, nil
 	}
 
@@ -99,7 +63,7 @@ func (r *MinioBucketReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CT
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	minioEndpoint, err := r.getMinioEndpoint(ctx, ctfd)
+	minioEndpoint, err := r.minioEndpoint.GetEndpoint(ctx, ctfd)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -138,10 +102,6 @@ func (r *MinioBucketReconciler) getMinio(ctx context.Context, ctfd *v1alpha1.CTF
 	return &minio, nil
 }
 
-func (r *MinioBucketReconciler) getMinioEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	return r.endpointStrategy.GetEndpoint(ctx, ctfd)
-}
-
 func (r *MinioBucketReconciler) getMinioCredentials(ctx context.Context, ctfd *v1alpha1.CTFd) (string, string, error) {
 	var secret corev1.Secret
 	if err := r.GetClient().Get(ctx, client.ObjectKey{
@@ -162,4 +122,8 @@ func (r *MinioBucketReconciler) getMinioCredentials(ctx context.Context, ctfd *v
 	secretAccessKey := string(secret.Data["MINIO_ROOT_PASSWORD"])
 
 	return accessKeyId, secretAccessKey, nil
+}
+
+func (r *MinioBucketReconciler) SetMinioEndpoint(endpoint MinioEndpointStrategy) {
+	r.minioEndpoint = endpoint
 }

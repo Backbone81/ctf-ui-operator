@@ -53,7 +53,8 @@ docker-build: lint ## Build the operator docker image.
 
 .PHONY: clean
 clean: ## Remove temporary files.
-	kind delete cluster
+	kind delete cluster --name kind
+	kind delete cluster --name kuttl-tests
 	chmod -R ug+w tmp
 	rm -rf tmp
 	rm -f ctf-ui-operator

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -17,29 +16,28 @@ import (
 // SetupReconciler is responsible for initializing CTFd instance.
 type SetupReconciler struct {
 	utils.DefaultSubReconciler
-	endpointStrategy EndpointStrategy
+	ctfdEndpoint CTFdEndpointStrategy
 }
 
-func NewSetupReconciler(client client.Client) *SetupReconciler {
-	var endpointStrategy EndpointStrategy
-	if _, err := rest.InClusterConfig(); err != nil {
-		endpointStrategy = &OutOfClusterEndpointStrategy{
-			servicePortForwarder: utils.NewServicePortForwarder(client),
-		}
-	} else {
-		endpointStrategy = &InClusterEndpointStrategy{}
+func NewSetupReconciler(client client.Client, options ...SubReconcilerOption) *SetupReconciler {
+	result := &SetupReconciler{
+		DefaultSubReconciler: utils.NewDefaultSubReconciler(client),
+	}
+	for _, option := range options {
+		option(result)
 	}
 
-	return &SetupReconciler{
-		DefaultSubReconciler: utils.NewDefaultSubReconciler(client),
-		endpointStrategy:     endpointStrategy,
+	if result.ctfdEndpoint == nil {
+		panic("CTFd endpoint strategy required")
 	}
+	return result
 }
 
 func (r *SetupReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CTFd) (ctrl.Result, error) {
 	if !ctfd.Status.Ready {
 		// The CTFd instance is not ready. We try again later when the instance is up and running. The next reconcile
 		// will be triggered when the status changes.
+		ctrl.LoggerFrom(ctx).V(1).Info("CTFd is not ready, skipping SetupReconciler.")
 		return ctrl.Result{}, nil
 	}
 
@@ -59,7 +57,7 @@ func (r *SetupReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CTFd) (c
 	}
 	if !setupRequired {
 		// The setup was already done. No need to do anything here.
-		ctrl.LoggerFrom(ctx).V(5).Info("Instance is already setup. Not running setup again.")
+		ctrl.LoggerFrom(ctx).V(1).Info("CTFd is already setup, skipping SetupReconciler.")
 		return ctrl.Result{}, nil
 	}
 
@@ -86,7 +84,7 @@ func (r *SetupReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CTFd) (c
 }
 
 func (r *SetupReconciler) getEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	return r.endpointStrategy.GetEndpoint(ctx, ctfd)
+	return r.ctfdEndpoint.GetEndpoint(ctx, ctfd)
 }
 
 func (r *SetupReconciler) getSetupRequest(ctx context.Context, ctfd *v1alpha1.CTFd) (ctfdapi.SetupRequest, error) {
@@ -117,4 +115,8 @@ func (r *SetupReconciler) getSetupRequest(ctx context.Context, ctfd *v1alpha1.CT
 		result.End = &ctfd.Spec.End.Time
 	}
 	return result, nil
+}
+
+func (r *SetupReconciler) SetCTFdEndpoint(endpoint CTFdEndpointStrategy) {
+	r.ctfdEndpoint = endpoint
 }

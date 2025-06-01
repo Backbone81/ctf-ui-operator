@@ -6,7 +6,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -18,29 +17,28 @@ import (
 // AccessTokenReconciler is responsible for creating an access token for the operator.
 type AccessTokenReconciler struct {
 	utils.DefaultSubReconciler
-	endpointStrategy EndpointStrategy
+	ctfdEndpoint CTFdEndpointStrategy
 }
 
-func NewAccessTokenReconciler(client client.Client) *AccessTokenReconciler {
-	var endpointStrategy EndpointStrategy
-	if _, err := rest.InClusterConfig(); err != nil {
-		endpointStrategy = &OutOfClusterEndpointStrategy{
-			servicePortForwarder: utils.NewServicePortForwarder(client),
-		}
-	} else {
-		endpointStrategy = &InClusterEndpointStrategy{}
+func NewAccessTokenReconciler(client client.Client, options ...SubReconcilerOption) *AccessTokenReconciler {
+	result := &AccessTokenReconciler{
+		DefaultSubReconciler: utils.NewDefaultSubReconciler(client),
+	}
+	for _, option := range options {
+		option(result)
 	}
 
-	return &AccessTokenReconciler{
-		DefaultSubReconciler: utils.NewDefaultSubReconciler(client),
-		endpointStrategy:     endpointStrategy,
+	if result.ctfdEndpoint == nil {
+		panic("CTFd endpoint strategy required")
 	}
+	return result
 }
 
 func (r *AccessTokenReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CTFd) (ctrl.Result, error) {
 	if !ctfd.Status.Ready {
 		// The CTFd instance is not ready. We try again later when the instance is up and running. The next reconcile
 		// will be triggered when the status changes.
+		ctrl.LoggerFrom(ctx).V(1).Info("CTFd is not ready, skipping AccessTokenReconciler.")
 		return ctrl.Result{}, nil
 	}
 
@@ -49,11 +47,12 @@ func (r *AccessTokenReconciler) Reconcile(ctx context.Context, ctfd *v1alpha1.CT
 		return ctrl.Result{}, err
 	}
 	if len(adminDetails.AccessToken) != 0 {
-		// We already have an access token for the admin. No need to create an other one.
+		// We already have an access token for the admin. No need to create another one.
+		ctrl.LoggerFrom(ctx).V(1).Info("Access token already available, skipping AccessTokenReconciler.")
 		return ctrl.Result{}, nil
 	}
 
-	endpoint, err := r.getEndpoint(ctx, ctfd)
+	endpoint, err := r.ctfdEndpoint.GetEndpoint(ctx, ctfd)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -107,6 +106,6 @@ func (r *AccessTokenReconciler) storeAccessToken(ctx context.Context, ctfd *v1al
 	return nil
 }
 
-func (r *AccessTokenReconciler) getEndpoint(ctx context.Context, ctfd *v1alpha1.CTFd) (string, error) {
-	return r.endpointStrategy.GetEndpoint(ctx, ctfd)
+func (r *AccessTokenReconciler) SetCTFdEndpoint(endpoint CTFdEndpointStrategy) {
+	r.ctfdEndpoint = endpoint
 }
