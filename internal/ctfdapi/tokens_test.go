@@ -7,7 +7,7 @@ import (
 	"github.com/backbone81/ctf-ui-operator/internal/ctfdapi"
 )
 
-var _ = Describe("Token", func() {
+var _ = Describe("Tokens", func() {
 	var ctfdClient *ctfdapi.Client
 
 	BeforeEach(func(ctx SpecContext) {

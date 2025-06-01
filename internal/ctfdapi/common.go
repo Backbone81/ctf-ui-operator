@@ -94,6 +94,7 @@ func (c *Client) sendGetRequest(ctx context.Context, path string) ([]byte, error
 	return responseData, nil
 }
 
+//nolint:dupl
 func (c *Client) sendPostRequest(ctx context.Context, path string, payload any) ([]byte, error) {
 	targetUrl, err := c.getTargetUrl(path)
 	if err != nil {
@@ -106,6 +107,47 @@ func (c *Client) sendPostRequest(ctx context.Context, path string, payload any) 
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, targetUrl, bytes.NewReader(payloadData))
+	if err != nil {
+		return nil, fmt.Errorf("creating new HTTP request: %w", err)
+	}
+	if len(c.accessToken) != 0 {
+		request.Header.Set("Authorization", "Token "+c.accessToken)
+	}
+	if len(c.csrfToken) != 0 {
+		request.Header.Set("Csrf-Token", c.csrfToken)
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := c.client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("executing HTTP request: %w", err)
+	}
+	defer response.Body.Close() //nolint:errcheck
+
+	responseData, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code %d: %s", response.StatusCode, response.Status)
+	}
+	return responseData, nil
+}
+
+//nolint:dupl
+func (c *Client) sendPatchRequest(ctx context.Context, path string, payload any) ([]byte, error) {
+	targetUrl, err := c.getTargetUrl(path)
+	if err != nil {
+		return nil, err
+	}
+
+	payloadData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling payload into JSON: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPatch, targetUrl, bytes.NewReader(payloadData))
 	if err != nil {
 		return nil, fmt.Errorf("creating new HTTP request: %w", err)
 	}
