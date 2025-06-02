@@ -58,132 +58,59 @@ func (c *Client) getByRegex(ctx context.Context, path string, regex *regexp.Rege
 	return string(matches[1]), nil
 }
 
-//nolint:dupl
 func (c *Client) sendGetRequest(ctx context.Context, path string) ([]byte, error) {
-	targetUrl, err := c.getTargetUrl(path)
+	request, err := c.prepareRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, targetUrl, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating new HTTP request: %w", err)
-	}
-	if len(c.accessToken) != 0 {
-		request.Header.Set("Authorization", "Token "+c.accessToken)
-	}
-	if len(c.csrfToken) != 0 {
-		request.Header.Set("Csrf-Token", c.csrfToken)
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := c.client.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("executing HTTP request: %w", err)
-	}
-	defer response.Body.Close() //nolint:errcheck
-
-	responseData, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d: %s", response.StatusCode, response.Status)
-	}
-	return responseData, nil
+	return c.executeRequest(request)
 }
 
-//nolint:dupl
 func (c *Client) sendPostRequest(ctx context.Context, path string, payload any) ([]byte, error) {
-	targetUrl, err := c.getTargetUrl(path)
-	if err != nil {
-		return nil, err
-	}
-
 	payloadData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling payload into JSON: %w", err)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, targetUrl, bytes.NewReader(payloadData))
+	request, err := c.prepareRequest(ctx, http.MethodPost, path, payloadData)
 	if err != nil {
-		return nil, fmt.Errorf("creating new HTTP request: %w", err)
+		return nil, err
 	}
-	if len(c.accessToken) != 0 {
-		request.Header.Set("Authorization", "Token "+c.accessToken)
-	}
-	if len(c.csrfToken) != 0 {
-		request.Header.Set("Csrf-Token", c.csrfToken)
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := c.client.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("executing HTTP request: %w", err)
-	}
-	defer response.Body.Close() //nolint:errcheck
-
-	responseData, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d: %s", response.StatusCode, response.Status)
-	}
-	return responseData, nil
+	return c.executeRequest(request)
 }
 
-//nolint:dupl
 func (c *Client) sendPatchRequest(ctx context.Context, path string, payload any) ([]byte, error) {
-	targetUrl, err := c.getTargetUrl(path)
-	if err != nil {
-		return nil, err
-	}
-
 	payloadData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling payload into JSON: %w", err)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPatch, targetUrl, bytes.NewReader(payloadData))
+	request, err := c.prepareRequest(ctx, http.MethodPatch, path, payloadData)
 	if err != nil {
-		return nil, fmt.Errorf("creating new HTTP request: %w", err)
+		return nil, err
 	}
-	if len(c.accessToken) != 0 {
-		request.Header.Set("Authorization", "Token "+c.accessToken)
-	}
-	if len(c.csrfToken) != 0 {
-		request.Header.Set("Csrf-Token", c.csrfToken)
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := c.client.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("executing HTTP request: %w", err)
-	}
-	defer response.Body.Close() //nolint:errcheck
-
-	responseData, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d: %s", response.StatusCode, response.Status)
-	}
-	return responseData, nil
+	return c.executeRequest(request)
 }
 
-//nolint:dupl
 func (c *Client) sendDeleteRequest(ctx context.Context, path string) ([]byte, error) {
+	request, err := c.prepareRequest(ctx, http.MethodDelete, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c.executeRequest(request)
+}
+
+func (c *Client) prepareRequest(ctx context.Context, method string, path string, body []byte) (*http.Request, error) {
 	targetUrl, err := c.getTargetUrl(path)
 	if err != nil {
 		return nil, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, targetUrl, nil)
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	}
+	request, err := http.NewRequestWithContext(ctx, method, targetUrl, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("creating new HTTP request: %w", err)
 	}
@@ -194,7 +121,10 @@ func (c *Client) sendDeleteRequest(ctx context.Context, path string) ([]byte, er
 		request.Header.Set("Csrf-Token", c.csrfToken)
 	}
 	request.Header.Set("Content-Type", "application/json")
+	return request, nil
+}
 
+func (c *Client) executeRequest(request *http.Request) ([]byte, error) {
 	response, err := c.client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("executing HTTP request: %w", err)
