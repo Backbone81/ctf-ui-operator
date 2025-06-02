@@ -91,6 +91,12 @@ type CTFdSpec struct {
 	// Minio provides configuration specific to Minio.
 	// +kubebuilder:validation:Optional
 	Minio MinioSpec `json:"minio"`
+
+	// ChallengeNamespace provides the namespace to look for ChallengeDescription resources. Those are then reconciled
+	// into the instance. If nil is given, no ChallengeDescriptions are reconciled. If an empty string is given, the
+	// same namespace is used.
+	// +kubebuilder:validation:Optional
+	ChallengeNamespace *string `json:"challengeNamespace"`
 }
 
 // CTFdStatus defines the observed state of CTFd.

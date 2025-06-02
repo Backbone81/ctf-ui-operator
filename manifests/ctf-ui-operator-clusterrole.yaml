@@ -4,9 +4,7 @@ kind: ClusterRole
 metadata:
   name: ctf-ui-operator
 rules:
-  - apiGroups:
-      - ""
-    resources:
+  - resources:
       - persistentvolumeclaims
       - secrets
       - serviceaccounts
@@ -30,6 +28,14 @@ rules:
       - list
       - patch
       - update
+      - watch
+  - apiGroups:
+      - core.ctf.backbone81
+    resources:
+      - challengedescriptions
+    verbs:
+      - get
+      - list
       - watch
   - apiGroups:
       - ui.ctf.backbone81

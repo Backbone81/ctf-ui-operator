@@ -60,6 +60,12 @@ spec:
                 - private
                 - admins
                 type: string
+              challengeNamespace:
+                description: |-
+                  ChallengeNamespace provides the namespace to look for ChallengeDescription resources. Those are then reconciled
+                  into the instance. If nil is given, no ChallengeDescriptions are reconciled. If an empty string is given, the
+                  same namespace is used.
+                type: string
               challengeVisibility:
                 default: private
                 description: ChallengeVisibility is the visibility for the challenges.
@@ -2006,9 +2012,7 @@ kind: ClusterRole
 metadata:
   name: ctf-ui-operator
 rules:
-- apiGroups:
-  - ""
-  resources:
+- resources:
   - persistentvolumeclaims
   - secrets
   - serviceaccounts
@@ -2032,6 +2036,14 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - core.ctf.backbone81
+  resources:
+  - challengedescriptions
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - ui.ctf.backbone81

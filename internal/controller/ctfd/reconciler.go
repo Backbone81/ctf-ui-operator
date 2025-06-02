@@ -39,6 +39,7 @@ func WithDefaultReconcilers() utils.ReconcilerOption[*v1alpha1.CTFd] {
 		WithAdminSecretReconciler()(reconciler)
 		WithSetupReconciler(WithCTFdAutodetectEndpoint())(reconciler)
 		WithAccessTokenReconciler(WithCTFdAutodetectEndpoint())(reconciler)
+		WithChallengeDescriptionReconciler(WithCTFdAutodetectEndpoint())(reconciler)
 	}
 }
 
@@ -51,6 +52,12 @@ func WithAccessTokenReconciler(options ...SubReconcilerOption) utils.ReconcilerO
 func WithAdminSecretReconciler() utils.ReconcilerOption[*v1alpha1.CTFd] {
 	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
 		reconciler.AppendSubReconciler(NewAdminSecretReconciler(reconciler.GetClient()))
+	}
+}
+
+func WithChallengeDescriptionReconciler(options ...SubReconcilerOption) utils.ReconcilerOption[*v1alpha1.CTFd] {
+	return func(reconciler *utils.Reconciler[*v1alpha1.CTFd]) {
+		reconciler.AppendSubReconciler(NewChallengeDescriptionReconciler(reconciler.GetClient(), options...))
 	}
 }
 
