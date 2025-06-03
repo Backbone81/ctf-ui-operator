@@ -44,10 +44,14 @@ func NewClient(baseUrl string, accessToken string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) getTargetUrl(path string) (string, error) {
-	targetUrl, err := url.JoinPath(c.baseUrl.String(), path)
+func (c *Client) getTargetUrl(urlPath string, queryParameter map[string]string) (string, error) {
+	path, err := url.JoinPath(c.baseUrl.String(), urlPath)
 	if err != nil {
-		return "", fmt.Errorf("constructing target URL: %w", err)
+		return "", err
 	}
-	return targetUrl, nil
+	params := url.Values{}
+	for key, value := range queryParameter {
+		params.Add(key, value)
+	}
+	return path + "?" + params.Encode(), nil
 }

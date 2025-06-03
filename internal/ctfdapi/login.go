@@ -33,7 +33,7 @@ func (c *Client) Login(ctx context.Context, loginRequest LoginRequest) error {
 //
 //nolint:dupl
 func (c *Client) loginSendForm(ctx context.Context, loginRequest LoginRequest, nonce string) error {
-	targetUrl, err := c.getTargetUrl(loginPath)
+	targetUrl, err := c.getTargetUrl(loginPath, nil)
 	if err != nil {
 		return err
 	}

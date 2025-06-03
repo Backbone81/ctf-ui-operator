@@ -29,7 +29,7 @@ type ListTokensResponse struct {
 }
 
 func (c *Client) ListTokens(ctx context.Context) (ListTokensResponse, error) {
-	data, err := c.sendGetRequest(ctx, tokensPath)
+	data, err := c.sendGetRequest(ctx, tokensPath, nil)
 	if err != nil {
 		return ListTokensResponse{}, err
 	}
@@ -114,7 +114,7 @@ type GetTokenResponse struct {
 }
 
 func (c *Client) GetToken(ctx context.Context, id int) (GetTokenResponse, error) {
-	data, err := c.sendGetRequest(ctx, path.Join(tokensPath, strconv.Itoa(id)))
+	data, err := c.sendGetRequest(ctx, path.Join(tokensPath, strconv.Itoa(id)), nil)
 	if err != nil {
 		return GetTokenResponse{}, err
 	}

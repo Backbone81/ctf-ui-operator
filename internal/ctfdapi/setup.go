@@ -94,7 +94,7 @@ const (
 
 // SetupRequired checks if the setup process was already done or not.
 func (c *Client) SetupRequired(ctx context.Context) (bool, error) {
-	targetUrl, err := c.getTargetUrl(setupPath)
+	targetUrl, err := c.getTargetUrl(setupPath, nil)
 	if err != nil {
 		return false, err
 	}
@@ -141,7 +141,7 @@ func (c *Client) Setup(ctx context.Context, setupRequest SetupRequest) error {
 //
 //nolint:dupl
 func (c *Client) setupSendForm(ctx context.Context, setupRequest SetupRequest, nonce string) error {
-	targetUrl, err := c.getTargetUrl(setupPath)
+	targetUrl, err := c.getTargetUrl(setupPath, nil)
 	if err != nil {
 		return err
 	}

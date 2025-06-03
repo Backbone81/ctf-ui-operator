@@ -34,7 +34,7 @@ type ListChallengeResponse struct {
 }
 
 func (c *Client) ListChallenges(ctx context.Context) ([]Challenge, error) {
-	data, err := c.sendGetRequest(ctx, challengesPath)
+	data, err := c.sendGetRequest(ctx, challengesPath, map[string]string{"view": "admin"})
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ type GetChallengeResponse struct {
 }
 
 func (c *Client) GetChallenge(ctx context.Context, id int) (Challenge, error) {
-	data, err := c.sendGetRequest(ctx, path.Join(challengesPath, strconv.Itoa(id)))
+	data, err := c.sendGetRequest(ctx, path.Join(challengesPath, strconv.Itoa(id)), nil)
 	if err != nil {
 		return Challenge{}, err
 	}

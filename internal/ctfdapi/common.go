@@ -26,7 +26,7 @@ func (c *Client) getCSRFNonce(ctx context.Context, path string) (string, error) 
 }
 
 func (c *Client) getByRegex(ctx context.Context, path string, regex *regexp.Regexp) (string, error) {
-	targetUrl, err := c.getTargetUrl(path)
+	targetUrl, err := c.getTargetUrl(path, nil)
 	if err != nil {
 		return "", err
 	}
@@ -58,8 +58,8 @@ func (c *Client) getByRegex(ctx context.Context, path string, regex *regexp.Rege
 	return string(matches[1]), nil
 }
 
-func (c *Client) sendGetRequest(ctx context.Context, path string) ([]byte, error) {
-	request, err := c.prepareRequest(ctx, http.MethodGet, path, nil)
+func (c *Client) sendGetRequest(ctx context.Context, path string, queryParameter map[string]string) ([]byte, error) {
+	request, err := c.prepareRequest(ctx, http.MethodGet, path, queryParameter, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (c *Client) sendPostRequest(ctx context.Context, path string, payload any) 
 		return nil, fmt.Errorf("marshalling payload into JSON: %w", err)
 	}
 
-	request, err := c.prepareRequest(ctx, http.MethodPost, path, payloadData)
+	request, err := c.prepareRequest(ctx, http.MethodPost, path, nil, payloadData)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (c *Client) sendPatchRequest(ctx context.Context, path string, payload any)
 		return nil, fmt.Errorf("marshalling payload into JSON: %w", err)
 	}
 
-	request, err := c.prepareRequest(ctx, http.MethodPatch, path, payloadData)
+	request, err := c.prepareRequest(ctx, http.MethodPatch, path, nil, payloadData)
 	if err != nil {
 		return nil, err
 	}
@@ -93,15 +93,15 @@ func (c *Client) sendPatchRequest(ctx context.Context, path string, payload any)
 }
 
 func (c *Client) sendDeleteRequest(ctx context.Context, path string) ([]byte, error) {
-	request, err := c.prepareRequest(ctx, http.MethodDelete, path, nil)
+	request, err := c.prepareRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	return c.executeRequest(request)
 }
 
-func (c *Client) prepareRequest(ctx context.Context, method string, path string, body []byte) (*http.Request, error) {
-	targetUrl, err := c.getTargetUrl(path)
+func (c *Client) prepareRequest(ctx context.Context, method string, path string, queryParameter map[string]string, body []byte) (*http.Request, error) {
+	targetUrl, err := c.getTargetUrl(path, queryParameter)
 	if err != nil {
 		return nil, err
 	}

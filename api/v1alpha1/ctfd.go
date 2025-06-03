@@ -1,6 +1,9 @@
 package v1alpha1
 
 import (
+	"slices"
+
+	"github.com/backbone81/ctf-challenge-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -102,7 +105,27 @@ type CTFdSpec struct {
 // CTFdStatus defines the observed state of CTFd.
 type CTFdStatus struct {
 	// Ready is true when CTFd is up and running.
+	// +kubebuilder:validation:Optional
 	Ready bool `json:"ready"`
+
+	// ChallengeDescriptions provides information which associates ChallengeDescription resources with database ids
+	// of some CTFd instance.
+	// +kubebuilder:validation:Optional
+	ChallengeDescriptions []ChallengeDescriptionStatus `json:"challengeDescriptions"`
+}
+
+func (s *CTFdStatus) GetChallengeDescriptionIndex(challengeDescription v1alpha1.ChallengeDescription) int {
+	return slices.IndexFunc(s.ChallengeDescriptions, func(status ChallengeDescriptionStatus) bool {
+		return status.Name == challengeDescription.Name && status.Namespace == challengeDescription.Namespace
+	})
+}
+
+// ChallengeDescriptionStatus provides bookkeeping information about which CTFd challenge id a specific
+// ChallengeDescription with the given name in the given namespace was stored as.
+type ChallengeDescriptionStatus struct {
+	Id        int    `json:"id"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 // +kubebuilder:object:root=true

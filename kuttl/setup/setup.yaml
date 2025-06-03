@@ -996,11 +996,30 @@ spec:
           status:
             description: CTFdStatus defines the observed state of CTFd.
             properties:
+              challengeDescriptions:
+                description: |-
+                  ChallengeDescriptions provides information which associates ChallengeDescription resources with database ids
+                  of some CTFd instance.
+                items:
+                  description: |-
+                    ChallengeDescriptionStatus provides bookkeeping information about which CTFd challenge id a specific
+                    ChallengeDescription with the given name in the given namespace was stored as.
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  required:
+                  - id
+                  - name
+                  - namespace
+                  type: object
+                type: array
               ready:
                 description: Ready is true when CTFd is up and running.
                 type: boolean
-            required:
-            - ready
             type: object
         type: object
     served: true
@@ -2012,7 +2031,9 @@ kind: ClusterRole
 metadata:
   name: ctf-ui-operator
 rules:
-- resources:
+- apiGroups:
+  - ""
+  resources:
   - persistentvolumeclaims
   - secrets
   - serviceaccounts

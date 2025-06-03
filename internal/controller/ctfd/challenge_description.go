@@ -2,6 +2,7 @@ package ctfd
 
 import (
 	"context"
+	"slices"
 
 	v1alpha2 "github.com/backbone81/ctf-challenge-operator/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -69,29 +70,114 @@ func (r *ChallengeDescriptionReconciler) Reconcile(ctx context.Context, ctfd *v1
 	); err != nil {
 		return ctrl.Result{}, err
 	}
-	for _, challengeDescription := range challengeDescriptionList.Items {
-		if err := r.reconcileChallengeDescription(ctx, ctfdClient, &challengeDescription); err != nil {
-			return ctrl.Result{}, err
-		}
+
+	// We need to run update first, so we can deal with challenges which were deleted from the instance and need to
+	// be recreated.
+	if err := r.updateExistingChallenges(ctx, ctfd, ctfdClient, challengeDescriptionList.Items); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.createMissingChallenges(ctx, ctfd, ctfdClient, challengeDescriptionList.Items); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.deleteRemainingChallenges(ctx, ctfd, ctfdClient); err != nil {
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *ChallengeDescriptionReconciler) reconcileChallengeDescription(ctx context.Context, ctfdClient *ctfdapi.Client, challengeDescription *v1alpha2.ChallengeDescription) error {
-	challenge, err := ctfdClient.CreateChallenge(ctx, ctfdapi.Challenge{
-		Name:        challengeDescription.Spec.Title,
-		Description: challengeDescription.Spec.Description,
-		Value:       challengeDescription.Spec.Value,
-		Category:    challengeDescription.Spec.Category,
-	})
+func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Context, ctfd *v1alpha1.CTFd, ctfdClient *ctfdapi.Client, challengeDescriptions []v1alpha2.ChallengeDescription) error {
+	for _, challengeDescription := range challengeDescriptions {
+		index := ctfd.Status.GetChallengeDescriptionIndex(challengeDescription)
+		if index != -1 {
+			continue
+		}
+
+		ctrl.LoggerFrom(ctx).Info(
+			"Creating challenge",
+			"name", challengeDescription.Spec.Title,
+		)
+		challenge, err := ctfdClient.CreateChallenge(ctx, ctfdapi.Challenge{
+			Name:        challengeDescription.Spec.Title,
+			Description: challengeDescription.Spec.Description,
+			Value:       challengeDescription.Spec.Value,
+			Category:    challengeDescription.Spec.Category,
+		})
+		if err != nil {
+			return err
+		}
+		ctfd.Status.ChallengeDescriptions = append(ctfd.Status.ChallengeDescriptions, v1alpha1.ChallengeDescriptionStatus{
+			Id:        challenge.Id,
+			Name:      challengeDescription.Name,
+			Namespace: challengeDescription.Namespace,
+		})
+		if err := r.GetClient().Status().Update(ctx, ctfd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Context, ctfd *v1alpha1.CTFd, ctfdClient *ctfdapi.Client, challengeDescriptions []v1alpha2.ChallengeDescription) error {
+	for _, challengeDescription := range challengeDescriptions {
+		index := ctfd.Status.GetChallengeDescriptionIndex(challengeDescription)
+		if index == -1 {
+			continue
+		}
+
+		challenge, err := ctfdClient.GetChallenge(ctx, ctfd.Status.ChallengeDescriptions[index].Id)
+		if err != nil {
+			// We might run into an 404 not found error here, if somebody deleted the challenge from the instance. We
+			// would need to remove that entry from our status, to have it created afterward. We are unable to detect
+			// 404 not found right now.
+			return err
+		}
+		if challenge.Name == challengeDescription.Spec.Title &&
+			challenge.Description == challengeDescription.Spec.Description &&
+			challenge.Value == challengeDescription.Spec.Value &&
+			challenge.Category == challengeDescription.Spec.Category {
+			continue
+		}
+
+		ctrl.LoggerFrom(ctx).Info(
+			"Updating challenge",
+			"id", challenge.Id,
+			"name", challengeDescription.Spec.Title,
+		)
+		challenge.Name = challengeDescription.Spec.Title
+		challenge.Description = challengeDescription.Spec.Description
+		challenge.Value = challengeDescription.Spec.Value
+		challenge.Category = challengeDescription.Spec.Category
+		if _, err := ctfdClient.UpdateChallenge(ctx, challenge); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) deleteRemainingChallenges(ctx context.Context, ctfd *v1alpha1.CTFd, ctfdClient *ctfdapi.Client) error {
+	challenges, err := ctfdClient.ListChallenges(ctx)
 	if err != nil {
 		return err
 	}
-	ctrl.LoggerFrom(ctx).Info(
-		"Created challenge",
-		"id", challenge.Id,
-		"name", challenge.Name,
-	)
+	for _, challenge := range challenges {
+		// This approach is not correct. It does not delete challenges which are in the status for bookkeeping, but the
+		// challenge description was deleted.
+
+		index := slices.IndexFunc(ctfd.Status.ChallengeDescriptions, func(status v1alpha1.ChallengeDescriptionStatus) bool {
+			return status.Id == challenge.Id
+		})
+		if index != -1 {
+			continue
+		}
+		ctrl.LoggerFrom(ctx).Info(
+			"Deleting challenge",
+			"id", challenge.Id,
+			"name", challenge.Name,
+		)
+		if err := ctfdClient.DeleteChallenge(ctx, challenge.Id); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
