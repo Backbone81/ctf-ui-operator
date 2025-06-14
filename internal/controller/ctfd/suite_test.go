@@ -4,9 +4,14 @@ import (
 	"context"
 	"testing"
 
+	v1alpha2 "github.com/backbone81/ctf-challenge-operator/api/v1alpha1"
 	"github.com/testcontainers/testcontainers-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
@@ -31,6 +36,7 @@ var (
 
 	container   testcontainers.Container
 	endpointUrl string
+	accessToken string
 )
 
 func TestReconciler(t *testing.T) {
@@ -63,6 +69,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(createTokenResponse.Data.Value).ToNot(BeZero())
+	accessToken = createTokenResponse.Data.Value
 })
 
 var _ = AfterSuite(func(ctx SpecContext) {
@@ -76,6 +83,15 @@ func DeleteAllInstances(ctx context.Context) {
 
 	for _, ctfd := range mariadbList.Items {
 		Expect(k8sClient.Delete(ctx, &ctfd)).To(Succeed())
+	}
+}
+
+func DeleteAllChallengeDescriptions(ctx context.Context) {
+	var challengeDescriptionList v1alpha2.ChallengeDescriptionList
+	Expect(k8sClient.List(ctx, &challengeDescriptionList)).To(Succeed())
+
+	for _, challengeDescription := range challengeDescriptionList.Items {
+		Expect(k8sClient.Delete(ctx, &challengeDescription)).To(Succeed())
 	}
 }
 
@@ -111,7 +127,7 @@ func CreateRequiredThirdPartySecrets(ctx context.Context, instance *v1alpha1.CTF
 	return nil
 }
 
-func CreateAdminSecret(ctx context.Context, instance *v1alpha1.CTFd) error {
+func CreateAdminSecret(ctx context.Context, instance *v1alpha1.CTFd, accessToken *string) error {
 	adminSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ctfd.AdminSecretName(instance),
@@ -123,10 +139,62 @@ func CreateAdminSecret(ctx context.Context, instance *v1alpha1.CTFd) error {
 			"password": []byte(AdminPassword),
 		},
 	}
+	if accessToken != nil {
+		adminSecret.Data["token"] = []byte(*accessToken)
+	}
 	if err := k8sClient.Create(ctx, &adminSecret); err != nil {
 		return err
 	}
 	return nil
+}
+
+func CreateChallengeDescription(ctx context.Context) (*v1alpha2.ChallengeDescription, error) {
+	configMap := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+	}
+	configMapRaw, err := ToRaw(&configMap)
+	if err != nil {
+		return nil, err
+	}
+
+	challengeDescription := v1alpha2.ChallengeDescription{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "test-",
+			Namespace:    corev1.NamespaceDefault,
+		},
+		Spec: v1alpha2.ChallengeDescriptionSpec{
+			Title:       "Test Challenge",
+			Description: "This is a test challenge",
+			Manifests: []runtime.RawExtension{
+				{
+					Raw: configMapRaw,
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(ctx, &challengeDescription); err != nil {
+		return nil, err
+	}
+	return &challengeDescription, nil
+}
+
+// ToRaw converts a Kubernetes object into its JSON representation.
+func ToRaw(obj client.Object) ([]byte, error) {
+	codecFactory := serializer.NewCodecFactory(clientgoscheme.Scheme)
+	encoder := codecFactory.LegacyCodec(getGroupVersionKind(obj).GroupVersion())
+	return runtime.Encode(encoder, obj)
+}
+
+func getGroupVersionKind(obj client.Object) schema.GroupVersionKind {
+	if !obj.GetObjectKind().GroupVersionKind().Empty() {
+		return obj.GetObjectKind().GroupVersionKind()
+	}
+	gvks, _, err := clientgoscheme.Scheme.ObjectKinds(obj)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(gvks).To(HaveLen(1))
+	return gvks[0]
 }
 
 func SetThirdPartyCRsReady(ctx context.Context, instance *v1alpha1.CTFd, ready bool) error {

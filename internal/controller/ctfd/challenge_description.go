@@ -160,15 +160,14 @@ func (r *ChallengeDescriptionReconciler) deleteRemainingChallenges(ctx context.C
 		return err
 	}
 	for _, challenge := range challenges {
-		// This approach is not correct. It does not delete challenges which are in the status for bookkeeping, but the
-		// challenge description was deleted.
-
-		index := slices.IndexFunc(ctfd.Status.ChallengeDescriptions, func(status v1alpha1.ChallengeDescriptionStatus) bool {
-			return status.Id == challenge.Id
-		})
-		if index != -1 {
+		shouldDelete, err := r.shouldDeleteChallenge(ctx, ctfd, challenge)
+		if err != nil {
+			return err
+		}
+		if !shouldDelete {
 			continue
 		}
+
 		ctrl.LoggerFrom(ctx).Info(
 			"Deleting challenge",
 			"id", challenge.Id,
@@ -177,6 +176,44 @@ func (r *ChallengeDescriptionReconciler) deleteRemainingChallenges(ctx context.C
 		if err := ctfdClient.DeleteChallenge(ctx, challenge.Id); err != nil {
 			return err
 		}
+		if err := r.removeBookkeeping(ctx, ctfd, challenge); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) shouldDeleteChallenge(ctx context.Context, ctfd *v1alpha1.CTFd, challenge ctfdapi.Challenge) (bool, error) {
+	index := slices.IndexFunc(ctfd.Status.ChallengeDescriptions, func(status v1alpha1.ChallengeDescriptionStatus) bool {
+		return status.Id == challenge.Id
+	})
+	if index == -1 {
+		// Challenges which are not in our bookkeeping need to be deleted.
+		return true, nil
+	}
+
+	challengeDescription, err := r.getChallengeDescription(ctx, ctfd.Status.ChallengeDescriptions[index].Name, ctfd.Status.ChallengeDescriptions[index].Namespace)
+	if err != nil {
+		return false, err
+	}
+	if challengeDescription == nil {
+		// Challenges which are in our bookkeeping but have the ChallengeDescription deleted from the cluster need
+		// to be deleted.
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *ChallengeDescriptionReconciler) removeBookkeeping(ctx context.Context, ctfd *v1alpha1.CTFd, challenge ctfdapi.Challenge) error {
+	index := slices.IndexFunc(ctfd.Status.ChallengeDescriptions, func(status v1alpha1.ChallengeDescriptionStatus) bool {
+		return status.Id == challenge.Id
+	})
+	if index == -1 {
+		return nil
+	}
+	ctfd.Status.ChallengeDescriptions = append(ctfd.Status.ChallengeDescriptions[:index], ctfd.Status.ChallengeDescriptions[index+1:]...)
+	if err := r.GetClient().Status().Update(ctx, ctfd); err != nil {
+		return err
 	}
 	return nil
 }
@@ -190,4 +227,19 @@ func (r *ChallengeDescriptionReconciler) resolveChallengeNamespace(ctfd *v1alpha
 
 func (r *ChallengeDescriptionReconciler) SetCTFdEndpoint(endpoint CTFdEndpointStrategy) {
 	r.ctfdEndpoint = endpoint
+}
+
+func (r *ChallengeDescriptionReconciler) getChallengeDescription(ctx context.Context, name string, namespace string) (*v1alpha2.ChallengeDescription, error) {
+	var challengeDescription v1alpha2.ChallengeDescription
+	if err := r.GetClient().Get(
+		ctx,
+		client.ObjectKey{
+			Name:      name,
+			Namespace: namespace,
+		},
+		&challengeDescription,
+	); err != nil {
+		return nil, client.IgnoreNotFound(err)
+	}
+	return &challengeDescription, nil
 }

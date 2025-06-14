@@ -52,7 +52,7 @@ var _ = Describe("SetupReconciler", func() {
 		instance.Status.Ready = true
 		Expect(k8sClient.Status().Update(ctx, &instance)).To(Succeed())
 
-		Expect(CreateAdminSecret(ctx, &instance)).To(Succeed())
+		Expect(CreateAdminSecret(ctx, &instance, nil)).To(Succeed())
 
 		ctfdClient, err := ctfdapi.NewClient(endpointUrl, "")
 		Expect(err).ToNot(HaveOccurred())

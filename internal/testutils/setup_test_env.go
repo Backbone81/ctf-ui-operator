@@ -1,6 +1,11 @@
 package testutils
 
 import (
+	"fmt"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
 	"go.uber.org/zap/zapcore"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,8 +28,16 @@ func SetupTestEnv() (*envtest.Environment, client.Client) {
 	logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.Level(-10)))
 	ctrllog.SetLogger(logger)
 
+	challengeOperatorCRD, err := GetGoModulePath(
+		"github.com/backbone81/ctf-challenge-operator",
+		"manifests/ctf-challenge-operator-crd.yaml",
+	)
+	Expect(err).ToNot(HaveOccurred())
 	testEnv := &envtest.Environment{
-		CRDDirectoryPaths:     []string{"manifests/ctf-ui-operator-crd.yaml"},
+		CRDDirectoryPaths: []string{
+			"manifests/ctf-ui-operator-crd.yaml",
+			challengeOperatorCRD,
+		},
 		ErrorIfCRDPathMissing: true,
 		BinaryAssetsDirectory: "bin",
 	}
@@ -37,4 +50,16 @@ func SetupTestEnv() (*envtest.Environment, client.Client) {
 	Expect(k8sClient).NotTo(BeNil())
 	k8sClient = utils.NewLoggingClient(k8sClient)
 	return testEnv, k8sClient
+}
+
+func GetGoModulePath(moduleName string, relativePath string) (string, error) {
+	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", moduleName)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to find module %s: %w", moduleName, err)
+	}
+
+	moduleDir := strings.TrimSpace(string(output))
+
+	return filepath.Join(moduleDir, relativePath), nil
 }

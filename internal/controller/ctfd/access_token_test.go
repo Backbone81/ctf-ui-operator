@@ -37,7 +37,7 @@ var _ = Describe("AccessTokenReconciler", func() {
 		instance.Status.Ready = true
 		Expect(k8sClient.Status().Update(ctx, &instance)).To(Succeed())
 
-		Expect(CreateAdminSecret(ctx, &instance)).To(Succeed())
+		Expect(CreateAdminSecret(ctx, &instance, nil)).To(Succeed())
 
 		adminDetails, err := ctfd.GetAdminDetails(ctx, k8sClient, &instance)
 		Expect(err).ToNot(HaveOccurred())
