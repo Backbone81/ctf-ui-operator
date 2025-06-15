@@ -102,8 +102,8 @@ func (c *Client) DeleteChallenge(ctx context.Context, id int) error {
 }
 
 type UpdateChallengeResponse struct {
-	Succcess bool      `json:"succcess"`
-	Data     Challenge `json:"data"`
+	Success bool      `json:"success"`
+	Data    Challenge `json:"data"`
 }
 
 func (c *Client) UpdateChallenge(ctx context.Context, challenge Challenge) (Challenge, error) {
@@ -112,7 +112,7 @@ func (c *Client) UpdateChallenge(ctx context.Context, challenge Challenge) (Chal
 		return Challenge{}, err
 	}
 
-	var response CreateChallengeResponse
+	var response UpdateChallengeResponse
 	if err := json.Unmarshal(data, &response); err != nil {
 		return Challenge{}, err
 	}
