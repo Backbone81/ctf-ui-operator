@@ -48,7 +48,7 @@ var _ = Describe("Flags", func() {
 		flagGet, err := ctfdClient.GetFlag(ctx, flag.Id)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(flagGet).To(Equal(flagGet))
+		Expect(flagGet).To(Equal(flag))
 	})
 
 	It("should update a flag", func(ctx SpecContext) {

@@ -38,7 +38,7 @@ var _ = Describe("Challenges", func() {
 		challengeGet, err := ctfdClient.GetChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(challengeGet).To(Equal(challengeGet))
+		Expect(challengeGet).To(Equal(challenge))
 	})
 
 	It("should update a challenge", func(ctx SpecContext) {
