@@ -5,7 +5,7 @@ go 1.23.10
 godebug default=go1.23
 
 require (
-	github.com/backbone81/ctf-challenge-operator v0.1.0
+	github.com/backbone81/ctf-challenge-operator v0.2.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/minio/minio-go/v7 v7.0.93
