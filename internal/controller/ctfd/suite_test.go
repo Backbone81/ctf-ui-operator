@@ -167,6 +167,7 @@ func CreateChallengeDescription(ctx context.Context) (*v1alpha2.ChallengeDescrip
 		Spec: v1alpha2.ChallengeDescriptionSpec{
 			Title:       "Test Challenge",
 			Description: "This is a test challenge",
+			Flag:        "CTF{test}",
 			Manifests: []runtime.RawExtension{
 				{
 					Raw: configMapRaw,
