@@ -25,7 +25,7 @@ var _ = Describe("Flags", func() {
 	})
 
 	It("should create a new flag", func(ctx SpecContext) {
-		beforeFlags, err := ctfdClient.ListFlags(ctx, challenge.Id)
+		beforeFlags, err := ctfdClient.ListFlagsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(ctfdClient.CreateFlag(ctx, ctfdapi.Flag{
@@ -33,7 +33,7 @@ var _ = Describe("Flags", func() {
 			Content:     "CTF{test_flag}",
 		})).Error().ToNot(HaveOccurred())
 
-		afterFlags, err := ctfdClient.ListFlags(ctx, challenge.Id)
+		afterFlags, err := ctfdClient.ListFlagsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(afterFlags).To(HaveLen(len(beforeFlags) + 1))
 	})
@@ -73,12 +73,12 @@ var _ = Describe("Flags", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		beforeFlags, err := ctfdClient.ListFlags(ctx, challenge.Id)
+		beforeFlags, err := ctfdClient.ListFlagsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(ctfdClient.DeleteFlag(ctx, flag.Id)).To(Succeed())
 
-		afterFlags, err := ctfdClient.ListFlags(ctx, challenge.Id)
+		afterFlags, err := ctfdClient.ListFlagsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(afterFlags).To(HaveLen(len(beforeFlags) - 1))
 	})

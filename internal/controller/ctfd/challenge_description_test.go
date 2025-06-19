@@ -111,6 +111,39 @@ var _ = Describe("ChallengeDescriptionReconciler", func() {
 		Expect(hintsAfter).To(Equal(hintsBefore + 1))
 	})
 
+	It("should successfully create the flag", func(ctx SpecContext) {
+		By("prepare test with all preconditions")
+		instance := AddDefaults(v1alpha1.CTFd{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-",
+				Namespace:    corev1.NamespaceDefault,
+			},
+			Spec: v1alpha1.CTFdSpec{
+				ChallengeNamespace: ptr.To(corev1.NamespaceDefault),
+			},
+		})
+		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
+		instance.Status.Ready = true
+		Expect(k8sClient.Status().Update(ctx, &instance)).To(Succeed())
+		Expect(CreateAdminSecret(ctx, &instance, &accessToken)).To(Succeed())
+		Expect(CreateChallengeDescription(ctx)).Error().ToNot(HaveOccurred())
+
+		flags, err := ctfdClient.ListFlags(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		flagsBefore := len(flags)
+
+		By("run the reconciler")
+		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeZero())
+
+		By("verify all postconditions")
+		flags, err = ctfdClient.ListFlags(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		flagsAfter := len(flags)
+		Expect(flagsAfter).To(Equal(flagsBefore + 1))
+	})
+
 	It("should delete manual created challenges", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
 		instance := AddDefaults(v1alpha1.CTFd{
@@ -193,5 +226,49 @@ var _ = Describe("ChallengeDescriptionReconciler", func() {
 		Expect(err).ToNot(HaveOccurred())
 		hintsAfter := len(hints)
 		Expect(hintsAfter).To(Equal(hintsBefore - 1))
+	})
+
+	It("should delete manual created flags", func(ctx SpecContext) {
+		By("prepare test with all preconditions")
+		instance := AddDefaults(v1alpha1.CTFd{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-",
+				Namespace:    corev1.NamespaceDefault,
+			},
+			Spec: v1alpha1.CTFdSpec{
+				ChallengeNamespace: ptr.To(corev1.NamespaceDefault),
+			},
+		})
+		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
+		Expect(CreateAdminSecret(ctx, &instance, &accessToken)).To(Succeed())
+		instance.Status.Ready = true
+		Expect(k8sClient.Status().Update(ctx, &instance)).To(Succeed())
+		Expect(CreateChallengeDescription(ctx)).Error().ToNot(HaveOccurred())
+
+		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeZero())
+
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&instance), &instance)).To(Succeed())
+
+		Expect(ctfdClient.CreateFlag(ctx, ctfdapi.Flag{
+			ChallengeId: instance.Status.ChallengeDescriptions[0].Id,
+			Content:     "CTF{additional_flag}",
+		})).Error().ToNot(HaveOccurred())
+
+		flags, err := ctfdClient.ListFlags(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		flagsBefore := len(flags)
+
+		By("run the reconciler")
+		result, err = reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeZero())
+
+		By("verify all postconditions")
+		flags, err = ctfdClient.ListFlags(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		flagsAfter := len(flags)
+		Expect(flagsAfter).To(Equal(flagsBefore - 1))
 	})
 })

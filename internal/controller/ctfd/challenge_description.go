@@ -163,6 +163,9 @@ func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Co
 		if err := r.reconcileHints(ctx, ctfdClient, ctfdChallenge, ctfd, &ctfd.Status.ChallengeDescriptions[challengeStatusIdx], k8sChallenge.Spec.Hints); err != nil {
 			return err
 		}
+		if err := r.reconcileFlag(ctx, ctfdClient, ctfdChallenge, &k8sChallenge); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -189,7 +192,7 @@ func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Con
 			"Creating challenge",
 			"name", k8sChallenge.Spec.Title,
 		)
-		challenge, err := ctfdClient.CreateChallenge(ctx, ctfdapi.Challenge{
+		ctfdChallenge, err := ctfdClient.CreateChallenge(ctx, ctfdapi.Challenge{
 			Name:        k8sChallenge.Spec.Title,
 			Description: k8sChallenge.Spec.Description,
 			Value:       k8sChallenge.Spec.Value,
@@ -199,7 +202,7 @@ func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Con
 			return err
 		}
 		ctfd.Status.ChallengeDescriptions = append(ctfd.Status.ChallengeDescriptions, v1alpha1.ChallengeDescriptionStatus{
-			Id:        challenge.Id,
+			Id:        ctfdChallenge.Id,
 			Name:      k8sChallenge.Name,
 			Namespace: k8sChallenge.Namespace,
 		})
@@ -207,7 +210,10 @@ func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Con
 		if err := r.GetClient().Status().Update(ctx, ctfd); err != nil {
 			return err
 		}
-		if err := r.reconcileHints(ctx, ctfdClient, challenge, ctfd, &ctfd.Status.ChallengeDescriptions[challengeStatusIdx], k8sChallenge.Spec.Hints); err != nil {
+		if err := r.reconcileHints(ctx, ctfdClient, ctfdChallenge, ctfd, &ctfd.Status.ChallengeDescriptions[challengeStatusIdx], k8sChallenge.Spec.Hints); err != nil {
+			return err
+		}
+		if err := r.reconcileFlag(ctx, ctfdClient, ctfdChallenge, &k8sChallenge); err != nil {
 			return err
 		}
 	}
@@ -381,6 +387,58 @@ func (r *ChallengeDescriptionReconciler) deleteObsoleteHints(ctx context.Context
 			"challenge-name", ctfdChallenge.Name,
 		)
 		if err := ctfdClient.DeleteHint(ctx, ctfdHint.Id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) reconcileFlag(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenge ctfdapi.Challenge, k8sChallenge *v1alpha2.ChallengeDescription) error {
+	flags, err := ctfdClient.ListFlagsForChallenge(ctx, ctfdChallenge.Id)
+	if err != nil {
+		return err
+	}
+
+	// Create missing flag
+	if len(flags) < 1 {
+		ctrl.LoggerFrom(ctx).Info(
+			"Creating flag",
+			"challenge-id", ctfdChallenge.Id,
+			"challenge-name", ctfdChallenge.Name,
+		)
+		flag, err := ctfdClient.CreateFlag(ctx, ctfdapi.Flag{
+			ChallengeId: ctfdChallenge.Id,
+			Content:     k8sChallenge.Spec.Flag,
+		})
+		if err != nil {
+			return err
+		}
+		flags = append(flags, flag)
+	}
+
+	// Delete obsolete flags
+	for flagIdx := 1; flagIdx < len(flags); flagIdx++ {
+		ctrl.LoggerFrom(ctx).Info(
+			"Deleting flag",
+			"id", flags[flagIdx].Id,
+			"challenge-id", ctfdChallenge.Id,
+			"challenge-name", ctfdChallenge.Name,
+		)
+		if err := ctfdClient.DeleteFlag(ctx, flags[flagIdx].Id); err != nil {
+			return err
+		}
+	}
+
+	// Update existing flag
+	if flags[0].Content != k8sChallenge.Spec.Flag {
+		flags[0].Content = k8sChallenge.Spec.Flag
+		ctrl.LoggerFrom(ctx).Info(
+			"Updating flag",
+			"id", flags[0].Id,
+			"challenge-id", ctfdChallenge.Id,
+			"challenge-name", ctfdChallenge.Name,
+		)
+		if _, err := ctfdClient.UpdateFlag(ctx, flags[0]); err != nil {
 			return err
 		}
 	}

@@ -28,7 +28,24 @@ type ListFlagsResponse struct {
 	Data    []Flag `json:"data"`
 }
 
-func (c *Client) ListFlags(ctx context.Context, challengeId int) ([]Flag, error) {
+func (c *Client) ListFlags(ctx context.Context) ([]Flag, error) {
+	data, err := c.sendGetRequest(ctx, flagsPath, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response ListFlagsResponse
+	if err := json.Unmarshal(data, &response); err != nil {
+		return nil, err
+	}
+
+	if !response.Success {
+		return response.Data, errors.New("the API request did not succeed")
+	}
+	return response.Data, nil
+}
+
+func (c *Client) ListFlagsForChallenge(ctx context.Context, challengeId int) ([]Flag, error) {
 	data, err := c.sendGetRequest(ctx, flagsPath, map[string]string{"challenge_id": strconv.Itoa(challengeId)})
 	if err != nil {
 		return nil, err
