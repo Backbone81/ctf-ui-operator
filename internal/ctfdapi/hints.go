@@ -30,7 +30,9 @@ type ListHintsResponse struct {
 }
 
 func (c *Client) ListHintsForChallenge(ctx context.Context, challengeId int) ([]Hint, error) {
-	data, err := c.sendGetRequest(ctx, hintsPath, map[string]string{"challenge_id": strconv.Itoa(challengeId)})
+	data, err := c.sendGetRequest(ctx, hintsPath, map[string]string{
+		"challenge_id": strconv.Itoa(challengeId),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +144,9 @@ type GetHintResponse struct {
 }
 
 func (c *Client) GetHint(ctx context.Context, id int) (Hint, error) {
-	data, err := c.sendGetRequest(ctx, path.Join(hintsPath, strconv.Itoa(id)), nil)
+	data, err := c.sendGetRequest(ctx, path.Join(hintsPath, strconv.Itoa(id)), map[string]string{
+		"preview": "true",
+	})
 	if err != nil {
 		return Hint{}, err
 	}

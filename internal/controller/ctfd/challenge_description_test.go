@@ -208,7 +208,7 @@ var _ = Describe("ChallengeDescriptionReconciler", func() {
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&instance), &instance)).To(Succeed())
 
 		Expect(ctfdClient.CreateHint(ctx, ctfdapi.Hint{
-			Title:       "Additional hint",
+			Content:     "Additional hint",
 			ChallengeId: instance.Status.ChallengeDescriptions[0].Id,
 		})).Error().ToNot(HaveOccurred())
 

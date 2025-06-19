@@ -138,8 +138,24 @@ func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Co
 		ctfdChallengeIndex := r.getCTFdChallengeIndex(ctfdChallenges, challengeStatus)
 		ctfdChallenge := ctfdChallenges[ctfdChallengeIndex]
 
+		// The CTFd challenge list endpoint does not return the description. We need to call the get endpoint to get
+		// it.
+		fullCTFdChallenge, err := ctfdClient.GetChallenge(ctx, ctfdChallenge.Id)
+		if err != nil {
+			return err
+		}
+		ctfdChallenge = fullCTFdChallenge
+
 		k8sChallengeIndex := r.getK8sChallengeIndex(k8sChallenges, challengeStatus)
 		k8sChallenge := k8sChallenges[k8sChallengeIndex]
+
+		// We need to reconcile hints and flags before we exit early on no changes.
+		if err := r.reconcileHints(ctx, ctfdClient, ctfdChallenge, ctfd, &ctfd.Status.ChallengeDescriptions[challengeStatusIdx], k8sChallenge.Spec.Hints); err != nil {
+			return err
+		}
+		if err := r.reconcileFlag(ctx, ctfdClient, ctfdChallenge, &k8sChallenge); err != nil {
+			return err
+		}
 
 		if ctfdChallenge.Name == k8sChallenge.Spec.Title &&
 			ctfdChallenge.Description == k8sChallenge.Spec.Description &&
@@ -158,12 +174,6 @@ func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Co
 		ctfdChallenge.Value = k8sChallenge.Spec.Value
 		ctfdChallenge.Category = k8sChallenge.Spec.Category
 		if _, err := ctfdClient.UpdateChallenge(ctx, ctfdChallenge); err != nil {
-			return err
-		}
-		if err := r.reconcileHints(ctx, ctfdClient, ctfdChallenge, ctfd, &ctfd.Status.ChallengeDescriptions[challengeStatusIdx], k8sChallenge.Spec.Hints); err != nil {
-			return err
-		}
-		if err := r.reconcileFlag(ctx, ctfdClient, ctfdChallenge, &k8sChallenge); err != nil {
 			return err
 		}
 	}
@@ -309,20 +319,27 @@ func (r *ChallengeDescriptionReconciler) updateExistingHints(ctx context.Context
 		ctfdHintIndex := r.getCTFdHintIndex(ctfdHints, hintStatus)
 		ctfdHint := ctfdHints[ctfdHintIndex]
 
+		// The CTFd list hints endpoint does not provide the hints themselves. Therefore, we need to update the hints
+		// with data from the get endpoint.
+		fullHint, err := ctfdClient.GetHint(ctx, ctfdHint.Id)
+		if err != nil {
+			return err
+		}
+		ctfdHint = fullHint
+
 		k8sHint := k8sHints[hintStatus.Index]
 
-		if ctfdHint.Title == k8sHint.Description &&
+		if ctfdHint.Content == k8sHint.Description &&
 			ctfdHint.Cost == k8sHint.Cost {
 			continue
 		}
 		ctrl.LoggerFrom(ctx).Info(
 			"Updating hint",
 			"id", ctfdHint.Id,
-			"name", ctfdHint.Title,
 			"challenge-id", ctfdChallenge.Id,
 			"challenge-name", ctfdChallenge.Name,
 		)
-		ctfdHint.Title = k8sHint.Description
+		ctfdHint.Content = k8sHint.Description
 		ctfdHint.Cost = k8sHint.Cost
 		if _, err := ctfdClient.UpdateHint(ctx, ctfdHint); err != nil {
 			return err
@@ -352,7 +369,7 @@ func (r *ChallengeDescriptionReconciler) createMissingHints(ctx context.Context,
 		)
 		ctfdHint, err := ctfdClient.CreateHint(ctx, ctfdapi.Hint{
 			ChallengeId: ctfdChallenge.Id,
-			Title:       k8sHint.Description,
+			Content:     k8sHint.Description,
 			Cost:        k8sHint.Cost,
 		})
 		if err != nil {
@@ -382,7 +399,6 @@ func (r *ChallengeDescriptionReconciler) deleteObsoleteHints(ctx context.Context
 		ctrl.LoggerFrom(ctx).Info(
 			"Deleting hint",
 			"id", ctfdHint.Id,
-			"name", ctfdHint.Title,
 			"challenge-id", ctfdChallenge.Id,
 			"challenge-name", ctfdChallenge.Name,
 		)
