@@ -34,7 +34,7 @@ run: lint ## Run the operator on your host.
 
 .PHONY: test
 test: lint ## Run tests.
-	ginkgo run -p --race --coverprofile cover.out --output-dir ./tmp $(PACKAGE)
+	go test --race --coverprofile cover.out --outputdir ./tmp $(PACKAGE)
 	go tool cover -html=tmp/cover.out -o tmp/cover.html
 
 .PHONY: test-e2e

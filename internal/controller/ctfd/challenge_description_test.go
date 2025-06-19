@@ -33,6 +33,11 @@ var _ = Describe("ChallengeDescriptionReconciler", func() {
 	AfterEach(func(ctx SpecContext) {
 		DeleteAllChallengeDescriptions(ctx)
 		DeleteAllInstances(ctx)
+		challenges, err := ctfdClient.ListChallenges(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		for _, challenge := range challenges {
+			Expect(ctfdClient.DeleteChallenge(ctx, challenge.Id)).Error().ToNot(HaveOccurred())
+		}
 	})
 
 	It("should successfully create the challenge", func(ctx SpecContext) {
