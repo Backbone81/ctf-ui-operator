@@ -25,7 +25,7 @@ var _ = Describe("Hints", func() {
 	})
 
 	It("should create a new hint", func(ctx SpecContext) {
-		beforeHints, err := ctfdClient.ListHints(ctx, challenge.Id)
+		beforeHints, err := ctfdClient.ListHintsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(ctfdClient.CreateHint(ctx, ctfdapi.Hint{
@@ -33,7 +33,7 @@ var _ = Describe("Hints", func() {
 			Content:     "This is a test hint.",
 		})).Error().ToNot(HaveOccurred())
 
-		afterHints, err := ctfdClient.ListHints(ctx, challenge.Id)
+		afterHints, err := ctfdClient.ListHintsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(afterHints).To(HaveLen(len(beforeHints) + 1))
 	})
@@ -73,12 +73,12 @@ var _ = Describe("Hints", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		beforeHints, err := ctfdClient.ListHints(ctx, challenge.Id)
+		beforeHints, err := ctfdClient.ListHintsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(ctfdClient.DeleteHint(ctx, hint.Id)).To(Succeed())
 
-		afterHints, err := ctfdClient.ListHints(ctx, challenge.Id)
+		afterHints, err := ctfdClient.ListHintsForChallenge(ctx, challenge.Id)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(afterHints).To(HaveLen(len(beforeHints) - 1))
 	})

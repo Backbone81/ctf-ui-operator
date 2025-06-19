@@ -29,8 +29,25 @@ type ListHintsResponse struct {
 	Data    []Hint `json:"data"`
 }
 
-func (c *Client) ListHints(ctx context.Context, challengeId int) ([]Hint, error) {
+func (c *Client) ListHintsForChallenge(ctx context.Context, challengeId int) ([]Hint, error) {
 	data, err := c.sendGetRequest(ctx, hintsPath, map[string]string{"challenge_id": strconv.Itoa(challengeId)})
+	if err != nil {
+		return nil, err
+	}
+
+	var response ListHintsResponse
+	if err := json.Unmarshal(data, &response); err != nil {
+		return nil, err
+	}
+
+	if !response.Success {
+		return response.Data, errors.New("the API request did not succeed")
+	}
+	return response.Data, nil
+}
+
+func (c *Client) ListHints(ctx context.Context) ([]Hint, error) {
+	data, err := c.sendGetRequest(ctx, hintsPath, nil)
 	if err != nil {
 		return nil, err
 	}

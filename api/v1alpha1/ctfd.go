@@ -126,6 +126,16 @@ type ChallengeDescriptionStatus struct {
 	Id        int    `json:"id"`
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
+
+	// +kubebuilder:validation:Optional
+	Hints []HintStatus `json:"hints"`
+}
+
+// HintStatus provides bookkeeping information about which CTFd hint id a specific hint from the ChallengeDescription
+// was stored as.
+type HintStatus struct {
+	Id    int `json:"id"`    // Id is the database id in CTFd
+	Index int `json:"index"` // Index into the slice of hint in the ChallengeDescription
 }
 
 // +kubebuilder:object:root=true

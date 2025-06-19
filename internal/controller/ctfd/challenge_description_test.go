@@ -1,9 +1,11 @@
 package ctfd_test
 
 import (
+	v1alpha2 "github.com/backbone81/ctf-challenge-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -66,6 +68,44 @@ var _ = Describe("ChallengeDescriptionReconciler", func() {
 		Expect(challengesAfter).To(Equal(challengesBefore + 1))
 	})
 
+	It("should successfully create the hint", func(ctx SpecContext) {
+		By("prepare test with all preconditions")
+		instance := AddDefaults(v1alpha1.CTFd{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-",
+				Namespace:    corev1.NamespaceDefault,
+			},
+			Spec: v1alpha1.CTFdSpec{
+				ChallengeNamespace: ptr.To(corev1.NamespaceDefault),
+			},
+		})
+		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
+		instance.Status.Ready = true
+		Expect(k8sClient.Status().Update(ctx, &instance)).To(Succeed())
+		Expect(CreateAdminSecret(ctx, &instance, &accessToken)).To(Succeed())
+		challengeDescription, err := CreateChallengeDescription(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		challengeDescription.Spec.Hints = append(challengeDescription.Spec.Hints, v1alpha2.ChallengeHint{
+			Description: "This is a test hint",
+		})
+		Expect(k8sClient.Update(ctx, challengeDescription)).To(Succeed())
+
+		hints, err := ctfdClient.ListHints(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		hintsBefore := len(hints)
+
+		By("run the reconciler")
+		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeZero())
+
+		By("verify all postconditions")
+		hints, err = ctfdClient.ListHints(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		hintsAfter := len(hints)
+		Expect(hintsAfter).To(Equal(hintsBefore + 1))
+	})
+
 	It("should delete manual created challenges", func(ctx SpecContext) {
 		By("prepare test with all preconditions")
 		instance := AddDefaults(v1alpha1.CTFd{
@@ -99,5 +139,54 @@ var _ = Describe("ChallengeDescriptionReconciler", func() {
 		Expect(err).ToNot(HaveOccurred())
 		challengesAfter := len(challenges)
 		Expect(challengesAfter).To(Equal(challengesBefore - 1))
+	})
+
+	It("should delete manual created hints", func(ctx SpecContext) {
+		By("prepare test with all preconditions")
+		instance := AddDefaults(v1alpha1.CTFd{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-",
+				Namespace:    corev1.NamespaceDefault,
+			},
+			Spec: v1alpha1.CTFdSpec{
+				ChallengeNamespace: ptr.To(corev1.NamespaceDefault),
+			},
+		})
+		Expect(k8sClient.Create(ctx, &instance)).To(Succeed())
+		Expect(CreateAdminSecret(ctx, &instance, &accessToken)).To(Succeed())
+		instance.Status.Ready = true
+		Expect(k8sClient.Status().Update(ctx, &instance)).To(Succeed())
+		challengeDescription, err := CreateChallengeDescription(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		challengeDescription.Spec.Hints = append(challengeDescription.Spec.Hints, v1alpha2.ChallengeHint{
+			Description: "This is a test hint",
+		})
+		Expect(k8sClient.Update(ctx, challengeDescription)).To(Succeed())
+
+		result, err := reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeZero())
+
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&instance), &instance)).To(Succeed())
+
+		Expect(ctfdClient.CreateHint(ctx, ctfdapi.Hint{
+			Title:       "Additional hint",
+			ChallengeId: instance.Status.ChallengeDescriptions[0].Id,
+		})).Error().ToNot(HaveOccurred())
+
+		hints, err := ctfdClient.ListHints(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		hintsBefore := len(hints)
+
+		By("run the reconciler")
+		result, err = reconciler.Reconcile(ctx, testutils.RequestFromObject(&instance))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeZero())
+
+		By("verify all postconditions")
+		hints, err = ctfdClient.ListHints(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		hintsAfter := len(hints)
+		Expect(hintsAfter).To(Equal(hintsBefore - 1))
 	})
 })

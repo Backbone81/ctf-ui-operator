@@ -62,9 +62,16 @@ func (r *ChallengeDescriptionReconciler) Reconcile(ctx context.Context, ctfd *v1
 		return ctrl.Result{}, err
 	}
 
+	if err := r.reconcileChallenges(ctx, ctfdClient, ctfd); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *ChallengeDescriptionReconciler) reconcileChallenges(ctx context.Context, ctfdClient *ctfdapi.Client, ctfd *v1alpha1.CTFd) error {
 	ctfdChallenges, err := ctfdClient.ListChallenges(ctx)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	var challengeDescriptionList v1alpha2.ChallengeDescriptionList
@@ -73,18 +80,11 @@ func (r *ChallengeDescriptionReconciler) Reconcile(ctx context.Context, ctfd *v1
 		&challengeDescriptionList,
 		client.InNamespace(r.resolveChallengeNamespace(ctfd)),
 	); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	k8sChallenges := challengeDescriptionList.Items
 
-	if err := r.reconcileChallenges(ctx, ctfdClient, ctfdChallenges, ctfd, k8sChallenges); err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *ChallengeDescriptionReconciler) reconcileChallenges(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenges []ctfdapi.Challenge, ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription) error {
-	r.cleanupStatus(ctfd, k8sChallenges, ctfdChallenges)
+	r.cleanupChallengeStatus(ctfd, k8sChallenges, ctfdChallenges)
 
 	if err := r.updateExistingChallenges(ctx, ctfdClient, ctfdChallenges, ctfd, k8sChallenges); err != nil {
 		return err
@@ -100,7 +100,7 @@ func (r *ChallengeDescriptionReconciler) reconcileChallenges(ctx context.Context
 	return nil
 }
 
-func (r *ChallengeDescriptionReconciler) cleanupStatus(ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription, ctfdChallenges []ctfdapi.Challenge) {
+func (r *ChallengeDescriptionReconciler) cleanupChallengeStatus(ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription, ctfdChallenges []ctfdapi.Challenge) {
 	// Remove challenges from the bookkeeping which can not be found in Kubernetes anymore.
 	ctfd.Status.ChallengeDescriptions = slices.DeleteFunc(ctfd.Status.ChallengeDescriptions, func(challengeStatus v1alpha1.ChallengeDescriptionStatus) bool {
 		return !r.k8sChallengeExists(k8sChallenges, challengeStatus)
@@ -134,7 +134,7 @@ func (r *ChallengeDescriptionReconciler) ctfdChallengeExists(ctfdChallenges []ct
 }
 
 func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenges []ctfdapi.Challenge, ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription) error {
-	for _, challengeStatus := range ctfd.Status.ChallengeDescriptions {
+	for challengeStatusIdx, challengeStatus := range ctfd.Status.ChallengeDescriptions {
 		ctfdChallengeIndex := r.getCTFdChallengeIndex(ctfdChallenges, challengeStatus)
 		ctfdChallenge := ctfdChallenges[ctfdChallengeIndex]
 
@@ -158,6 +158,9 @@ func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Co
 		ctfdChallenge.Value = k8sChallenge.Spec.Value
 		ctfdChallenge.Category = k8sChallenge.Spec.Category
 		if _, err := ctfdClient.UpdateChallenge(ctx, ctfdChallenge); err != nil {
+			return err
+		}
+		if err := r.reconcileHints(ctx, ctfdClient, ctfdChallenge, ctfd, &ctfd.Status.ChallengeDescriptions[challengeStatusIdx], k8sChallenge.Spec.Hints); err != nil {
 			return err
 		}
 	}
@@ -200,7 +203,11 @@ func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Con
 			Name:      k8sChallenge.Name,
 			Namespace: k8sChallenge.Namespace,
 		})
+		challengeStatusIdx := len(ctfd.Status.ChallengeDescriptions) - 1
 		if err := r.GetClient().Status().Update(ctx, ctfd); err != nil {
+			return err
+		}
+		if err := r.reconcileHints(ctx, ctfdClient, challenge, ctfd, &ctfd.Status.ChallengeDescriptions[challengeStatusIdx], k8sChallenge.Spec.Hints); err != nil {
 			return err
 		}
 	}
@@ -245,4 +252,137 @@ func (r *ChallengeDescriptionReconciler) resolveChallengeNamespace(ctfd *v1alpha
 
 func (r *ChallengeDescriptionReconciler) SetCTFdEndpoint(endpoint CTFdEndpointStrategy) {
 	r.ctfdEndpoint = endpoint
+}
+
+func (r *ChallengeDescriptionReconciler) reconcileHints(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenge ctfdapi.Challenge, ctfd *v1alpha1.CTFd, challengeStatus *v1alpha1.ChallengeDescriptionStatus, k8sHints []v1alpha2.ChallengeHint) error {
+	ctfdHints, err := ctfdClient.ListHintsForChallenge(ctx, ctfdChallenge.Id)
+	if err != nil {
+		return err
+	}
+
+	r.cleanupHintStatus(challengeStatus, k8sHints, ctfdHints)
+
+	if err := r.updateExistingHints(ctx, ctfdClient, ctfdChallenge, challengeStatus, ctfdHints, k8sHints); err != nil {
+		return err
+	}
+
+	if err := r.createMissingHints(ctx, ctfdClient, ctfdChallenge, ctfd, challengeStatus, k8sHints); err != nil {
+		return err
+	}
+
+	if err := r.deleteObsoleteHints(ctx, ctfdClient, ctfdChallenge, ctfdHints, challengeStatus); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) cleanupHintStatus(challengeStatus *v1alpha1.ChallengeDescriptionStatus, k8sHints []v1alpha2.ChallengeHint, ctfdHints []ctfdapi.Hint) {
+	// Remove hints from the bookkeeping which can not be found in Kubernetes anymore.
+	challengeStatus.Hints = slices.DeleteFunc(challengeStatus.Hints, func(hintStatus v1alpha1.HintStatus) bool {
+		return len(k8sHints) <= hintStatus.Index
+	})
+
+	// Remove hints from the bookkeeping which can not be found in CTFd anymore.
+	challengeStatus.Hints = slices.DeleteFunc(challengeStatus.Hints, func(hintStatus v1alpha1.HintStatus) bool {
+		return !r.ctfdHintExists(ctfdHints, hintStatus)
+	})
+}
+
+func (r *ChallengeDescriptionReconciler) getCTFdHintIndex(ctfdHints []ctfdapi.Hint, hintStatus v1alpha1.HintStatus) int {
+	return slices.IndexFunc(ctfdHints, func(ctfdHint ctfdapi.Hint) bool {
+		return ctfdHint.Id == hintStatus.Id
+	})
+}
+
+func (r *ChallengeDescriptionReconciler) ctfdHintExists(ctfdHints []ctfdapi.Hint, hintStatus v1alpha1.HintStatus) bool {
+	return r.getCTFdHintIndex(ctfdHints, hintStatus) != -1
+}
+
+func (r *ChallengeDescriptionReconciler) updateExistingHints(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenge ctfdapi.Challenge, challengeStatus *v1alpha1.ChallengeDescriptionStatus, ctfdHints []ctfdapi.Hint, k8sHints []v1alpha2.ChallengeHint) error {
+	for _, hintStatus := range challengeStatus.Hints {
+		ctfdHintIndex := r.getCTFdHintIndex(ctfdHints, hintStatus)
+		ctfdHint := ctfdHints[ctfdHintIndex]
+
+		k8sHint := k8sHints[hintStatus.Index]
+
+		if ctfdHint.Title == k8sHint.Description &&
+			ctfdHint.Cost == k8sHint.Cost {
+			continue
+		}
+		ctrl.LoggerFrom(ctx).Info(
+			"Updating hint",
+			"id", ctfdHint.Id,
+			"name", ctfdHint.Title,
+			"challenge-id", ctfdChallenge.Id,
+			"challenge-name", ctfdChallenge.Name,
+		)
+		ctfdHint.Title = k8sHint.Description
+		ctfdHint.Cost = k8sHint.Cost
+		if _, err := ctfdClient.UpdateHint(ctx, ctfdHint); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) createMissingHints(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenge ctfdapi.Challenge, ctfd *v1alpha1.CTFd, challengeStatus *v1alpha1.ChallengeDescriptionStatus, k8sHints []v1alpha2.ChallengeHint) error {
+	missingHintIdxs := make([]int, len(k8sHints))
+	for i := range missingHintIdxs {
+		missingHintIdxs[i] = i
+	}
+	missingHintIdxs = slices.DeleteFunc(missingHintIdxs, func(k8sHintIdx int) bool {
+		index := slices.IndexFunc(challengeStatus.Hints, func(hintStatus v1alpha1.HintStatus) bool {
+			return hintStatus.Index == k8sHintIdx
+		})
+		return index != -1
+	})
+	for _, missingHintIdx := range missingHintIdxs {
+		k8sHint := k8sHints[missingHintIdx]
+		ctrl.LoggerFrom(ctx).Info(
+			"Creating hint",
+			"name", k8sHint.Description,
+			"challenge-id", ctfdChallenge.Id,
+			"challenge-name", ctfdChallenge.Name,
+		)
+		ctfdHint, err := ctfdClient.CreateHint(ctx, ctfdapi.Hint{
+			ChallengeId: ctfdChallenge.Id,
+			Title:       k8sHint.Description,
+			Cost:        k8sHint.Cost,
+		})
+		if err != nil {
+			return err
+		}
+		challengeStatus.Hints = append(challengeStatus.Hints, v1alpha1.HintStatus{
+			Id:    ctfdHint.Id,
+			Index: missingHintIdx,
+		})
+		if err := r.GetClient().Status().Update(ctx, ctfd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) deleteObsoleteHints(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenge ctfdapi.Challenge, ctfdHints []ctfdapi.Hint, challengeStatus *v1alpha1.ChallengeDescriptionStatus) error {
+	obsoleteHints := make([]ctfdapi.Hint, len(ctfdHints))
+	copy(obsoleteHints, ctfdHints)
+	obsoleteHints = slices.DeleteFunc(obsoleteHints, func(ctfdHint ctfdapi.Hint) bool {
+		index := slices.IndexFunc(challengeStatus.Hints, func(k8sHintStatus v1alpha1.HintStatus) bool {
+			return k8sHintStatus.Id == ctfdHint.Id
+		})
+		return index != -1
+	})
+	for _, ctfdHint := range obsoleteHints {
+		ctrl.LoggerFrom(ctx).Info(
+			"Deleting hint",
+			"id", ctfdHint.Id,
+			"name", ctfdHint.Title,
+			"challenge-id", ctfdChallenge.Id,
+			"challenge-name", ctfdChallenge.Name,
+		)
+		if err := ctfdClient.DeleteHint(ctx, ctfdHint.Id); err != nil {
+			return err
+		}
+	}
+	return nil
 }

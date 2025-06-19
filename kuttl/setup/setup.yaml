@@ -1005,6 +1005,21 @@ spec:
                     ChallengeDescriptionStatus provides bookkeeping information about which CTFd challenge id a specific
                     ChallengeDescription with the given name in the given namespace was stored as.
                   properties:
+                    hints:
+                      items:
+                        description: |-
+                          HintStatus provides bookkeeping information about which CTFd hint id a specific hint from the ChallengeDescription
+                          was stored as.
+                        properties:
+                          id:
+                            type: integer
+                          index:
+                            type: integer
+                        required:
+                        - id
+                        - index
+                        type: object
+                      type: array
                     id:
                       type: integer
                     name:
