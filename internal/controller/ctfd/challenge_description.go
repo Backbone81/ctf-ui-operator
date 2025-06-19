@@ -62,6 +62,11 @@ func (r *ChallengeDescriptionReconciler) Reconcile(ctx context.Context, ctfd *v1
 		return ctrl.Result{}, err
 	}
 
+	ctfdChallenges, err := ctfdClient.ListChallenges(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	var challengeDescriptionList v1alpha2.ChallengeDescriptionList
 	if err := r.GetClient().List(
 		ctx,
@@ -70,45 +75,130 @@ func (r *ChallengeDescriptionReconciler) Reconcile(ctx context.Context, ctfd *v1
 	); err != nil {
 		return ctrl.Result{}, err
 	}
+	k8sChallenges := challengeDescriptionList.Items
 
-	// We need to run update first, so we can deal with challenges which were deleted from the instance and need to
-	// be recreated.
-	if err := r.updateExistingChallenges(ctx, ctfd, ctfdClient, challengeDescriptionList.Items); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.createMissingChallenges(ctx, ctfd, ctfdClient, challengeDescriptionList.Items); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.deleteRemainingChallenges(ctx, ctfd, ctfdClient); err != nil {
+	if err := r.reconcileChallenges(ctx, ctfdClient, ctfdChallenges, ctfd, k8sChallenges); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Context, ctfd *v1alpha1.CTFd, ctfdClient *ctfdapi.Client, challengeDescriptions []v1alpha2.ChallengeDescription) error {
-	for _, challengeDescription := range challengeDescriptions {
-		index := ctfd.Status.GetChallengeDescriptionIndex(challengeDescription)
-		if index != -1 {
+func (r *ChallengeDescriptionReconciler) reconcileChallenges(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenges []ctfdapi.Challenge, ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription) error {
+	r.cleanupStatus(ctfd, k8sChallenges, ctfdChallenges)
+
+	if err := r.updateExistingChallenges(ctx, ctfdClient, ctfdChallenges, ctfd, k8sChallenges); err != nil {
+		return err
+	}
+
+	if err := r.createMissingChallenges(ctx, ctfdClient, ctfd, k8sChallenges); err != nil {
+		return err
+	}
+
+	if err := r.deleteObsoleteChallenges(ctx, ctfdClient, ctfdChallenges, ctfd); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) cleanupStatus(ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription, ctfdChallenges []ctfdapi.Challenge) {
+	// Remove challenges from the bookkeeping which can not be found in Kubernetes anymore.
+	ctfd.Status.ChallengeDescriptions = slices.DeleteFunc(ctfd.Status.ChallengeDescriptions, func(challengeStatus v1alpha1.ChallengeDescriptionStatus) bool {
+		return !r.k8sChallengeExists(k8sChallenges, challengeStatus)
+	})
+
+	// Remove challenges from the bookkeeping which can not be found in CTFd anymore.
+	ctfd.Status.ChallengeDescriptions = slices.DeleteFunc(ctfd.Status.ChallengeDescriptions, func(challengeStatus v1alpha1.ChallengeDescriptionStatus) bool {
+		return !r.ctfdChallengeExists(ctfdChallenges, challengeStatus)
+	})
+}
+
+func (r *ChallengeDescriptionReconciler) getK8sChallengeIndex(k8sChallenges []v1alpha2.ChallengeDescription, challengeStatus v1alpha1.ChallengeDescriptionStatus) int {
+	return slices.IndexFunc(k8sChallenges, func(k8sChallenge v1alpha2.ChallengeDescription) bool {
+		return k8sChallenge.Name == challengeStatus.Name &&
+			k8sChallenge.Namespace == challengeStatus.Namespace
+	})
+}
+
+func (r *ChallengeDescriptionReconciler) k8sChallengeExists(k8sChallenges []v1alpha2.ChallengeDescription, challengeStatus v1alpha1.ChallengeDescriptionStatus) bool {
+	return r.getK8sChallengeIndex(k8sChallenges, challengeStatus) != -1
+}
+
+func (r *ChallengeDescriptionReconciler) getCTFdChallengeIndex(ctfdChallenges []ctfdapi.Challenge, challengeStatus v1alpha1.ChallengeDescriptionStatus) int {
+	return slices.IndexFunc(ctfdChallenges, func(ctfdChallenge ctfdapi.Challenge) bool {
+		return ctfdChallenge.Id == challengeStatus.Id
+	})
+}
+
+func (r *ChallengeDescriptionReconciler) ctfdChallengeExists(ctfdChallenges []ctfdapi.Challenge, challengeStatus v1alpha1.ChallengeDescriptionStatus) bool {
+	return r.getCTFdChallengeIndex(ctfdChallenges, challengeStatus) != -1
+}
+
+func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenges []ctfdapi.Challenge, ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription) error {
+	for _, challengeStatus := range ctfd.Status.ChallengeDescriptions {
+		ctfdChallengeIndex := r.getCTFdChallengeIndex(ctfdChallenges, challengeStatus)
+		ctfdChallenge := ctfdChallenges[ctfdChallengeIndex]
+
+		k8sChallengeIndex := r.getK8sChallengeIndex(k8sChallenges, challengeStatus)
+		k8sChallenge := k8sChallenges[k8sChallengeIndex]
+
+		if ctfdChallenge.Name == k8sChallenge.Spec.Title &&
+			ctfdChallenge.Description == k8sChallenge.Spec.Description &&
+			ctfdChallenge.Value == k8sChallenge.Spec.Value &&
+			ctfdChallenge.Category == k8sChallenge.Spec.Category {
 			continue
 		}
 
 		ctrl.LoggerFrom(ctx).Info(
+			"Updating challenge",
+			"id", ctfdChallenge.Id,
+			"name", k8sChallenge.Spec.Title,
+		)
+		ctfdChallenge.Name = k8sChallenge.Spec.Title
+		ctfdChallenge.Description = k8sChallenge.Spec.Description
+		ctfdChallenge.Value = k8sChallenge.Spec.Value
+		ctfdChallenge.Category = k8sChallenge.Spec.Category
+		if _, err := ctfdClient.UpdateChallenge(ctx, ctfdChallenge); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ChallengeDescriptionReconciler) getStatusIndexForK8sChallenge(challengeStatus []v1alpha1.ChallengeDescriptionStatus, k8sChallenge v1alpha2.ChallengeDescription) int {
+	return slices.IndexFunc(challengeStatus, func(challengeStatus v1alpha1.ChallengeDescriptionStatus) bool {
+		return challengeStatus.Name == k8sChallenge.Name &&
+			challengeStatus.Namespace == k8sChallenge.Namespace
+	})
+}
+
+func (r *ChallengeDescriptionReconciler) statusExistsForK8sChallenge(challengeStatus []v1alpha1.ChallengeDescriptionStatus, k8sChallenge v1alpha2.ChallengeDescription) bool {
+	return r.getStatusIndexForK8sChallenge(challengeStatus, k8sChallenge) != -1
+}
+
+func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Context, ctfdClient *ctfdapi.Client, ctfd *v1alpha1.CTFd, k8sChallenges []v1alpha2.ChallengeDescription) error {
+	missingChallenges := make([]v1alpha2.ChallengeDescription, len(k8sChallenges))
+	copy(missingChallenges, k8sChallenges)
+	missingChallenges = slices.DeleteFunc(missingChallenges, func(k8sChallenge v1alpha2.ChallengeDescription) bool {
+		return r.statusExistsForK8sChallenge(ctfd.Status.ChallengeDescriptions, k8sChallenge)
+	})
+	for _, k8sChallenge := range missingChallenges {
+		ctrl.LoggerFrom(ctx).Info(
 			"Creating challenge",
-			"name", challengeDescription.Spec.Title,
+			"name", k8sChallenge.Spec.Title,
 		)
 		challenge, err := ctfdClient.CreateChallenge(ctx, ctfdapi.Challenge{
-			Name:        challengeDescription.Spec.Title,
-			Description: challengeDescription.Spec.Description,
-			Value:       challengeDescription.Spec.Value,
-			Category:    challengeDescription.Spec.Category,
+			Name:        k8sChallenge.Spec.Title,
+			Description: k8sChallenge.Spec.Description,
+			Value:       k8sChallenge.Spec.Value,
+			Category:    k8sChallenge.Spec.Category,
 		})
 		if err != nil {
 			return err
 		}
 		ctfd.Status.ChallengeDescriptions = append(ctfd.Status.ChallengeDescriptions, v1alpha1.ChallengeDescriptionStatus{
 			Id:        challenge.Id,
-			Name:      challengeDescription.Name,
-			Namespace: challengeDescription.Namespace,
+			Name:      k8sChallenge.Name,
+			Namespace: k8sChallenge.Namespace,
 		})
 		if err := r.GetClient().Status().Update(ctx, ctfd); err != nil {
 			return err
@@ -117,103 +207,31 @@ func (r *ChallengeDescriptionReconciler) createMissingChallenges(ctx context.Con
 	return nil
 }
 
-func (r *ChallengeDescriptionReconciler) updateExistingChallenges(ctx context.Context, ctfd *v1alpha1.CTFd, ctfdClient *ctfdapi.Client, challengeDescriptions []v1alpha2.ChallengeDescription) error {
-	for _, challengeDescription := range challengeDescriptions {
-		index := ctfd.Status.GetChallengeDescriptionIndex(challengeDescription)
-		if index == -1 {
-			continue
-		}
-
-		challenge, err := ctfdClient.GetChallenge(ctx, ctfd.Status.ChallengeDescriptions[index].Id)
-		if err != nil {
-			// We might run into an 404 not found error here, if somebody deleted the challenge from the instance. We
-			// would need to remove that entry from our status, to have it created afterward. We are unable to detect
-			// 404 not found right now.
-			return err
-		}
-		if challenge.Name == challengeDescription.Spec.Title &&
-			challenge.Description == challengeDescription.Spec.Description &&
-			challenge.Value == challengeDescription.Spec.Value &&
-			challenge.Category == challengeDescription.Spec.Category {
-			continue
-		}
-
-		ctrl.LoggerFrom(ctx).Info(
-			"Updating challenge",
-			"id", challenge.Id,
-			"name", challengeDescription.Spec.Title,
-		)
-		challenge.Name = challengeDescription.Spec.Title
-		challenge.Description = challengeDescription.Spec.Description
-		challenge.Value = challengeDescription.Spec.Value
-		challenge.Category = challengeDescription.Spec.Category
-		if _, err := ctfdClient.UpdateChallenge(ctx, challenge); err != nil {
-			return err
-		}
-	}
-	return nil
+func (r *ChallengeDescriptionReconciler) getStatusIndexForCTFdChallenge(challengeStatus []v1alpha1.ChallengeDescriptionStatus, ctfdChallenge ctfdapi.Challenge) int {
+	return slices.IndexFunc(challengeStatus, func(challengeStatus v1alpha1.ChallengeDescriptionStatus) bool {
+		return ctfdChallenge.Id == challengeStatus.Id
+	})
 }
 
-func (r *ChallengeDescriptionReconciler) deleteRemainingChallenges(ctx context.Context, ctfd *v1alpha1.CTFd, ctfdClient *ctfdapi.Client) error {
-	challenges, err := ctfdClient.ListChallenges(ctx)
-	if err != nil {
-		return err
-	}
-	for _, challenge := range challenges {
-		shouldDelete, err := r.shouldDeleteChallenge(ctx, ctfd, challenge)
-		if err != nil {
-			return err
-		}
-		if !shouldDelete {
-			continue
-		}
+func (r *ChallengeDescriptionReconciler) statusExistsForCTFdChallenge(challengeStatus []v1alpha1.ChallengeDescriptionStatus, ctfdChallenge ctfdapi.Challenge) bool {
+	return r.getStatusIndexForCTFdChallenge(challengeStatus, ctfdChallenge) != -1
+}
 
+func (r *ChallengeDescriptionReconciler) deleteObsoleteChallenges(ctx context.Context, ctfdClient *ctfdapi.Client, ctfdChallenges []ctfdapi.Challenge, ctfd *v1alpha1.CTFd) error {
+	obsoleteChallenges := make([]ctfdapi.Challenge, len(ctfdChallenges))
+	copy(obsoleteChallenges, ctfdChallenges)
+	obsoleteChallenges = slices.DeleteFunc(obsoleteChallenges, func(ctfdChallenge ctfdapi.Challenge) bool {
+		return r.statusExistsForCTFdChallenge(ctfd.Status.ChallengeDescriptions, ctfdChallenge)
+	})
+	for _, ctfdChallenge := range obsoleteChallenges {
 		ctrl.LoggerFrom(ctx).Info(
 			"Deleting challenge",
-			"id", challenge.Id,
-			"name", challenge.Name,
+			"id", ctfdChallenge.Id,
+			"name", ctfdChallenge.Name,
 		)
-		if err := ctfdClient.DeleteChallenge(ctx, challenge.Id); err != nil {
+		if err := ctfdClient.DeleteChallenge(ctx, ctfdChallenge.Id); err != nil {
 			return err
 		}
-		if err := r.removeBookkeeping(ctx, ctfd, challenge); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *ChallengeDescriptionReconciler) shouldDeleteChallenge(ctx context.Context, ctfd *v1alpha1.CTFd, challenge ctfdapi.Challenge) (bool, error) {
-	index := slices.IndexFunc(ctfd.Status.ChallengeDescriptions, func(status v1alpha1.ChallengeDescriptionStatus) bool {
-		return status.Id == challenge.Id
-	})
-	if index == -1 {
-		// Challenges which are not in our bookkeeping need to be deleted.
-		return true, nil
-	}
-
-	challengeDescription, err := r.getChallengeDescription(ctx, ctfd.Status.ChallengeDescriptions[index].Name, ctfd.Status.ChallengeDescriptions[index].Namespace)
-	if err != nil {
-		return false, err
-	}
-	if challengeDescription == nil {
-		// Challenges which are in our bookkeeping but have the ChallengeDescription deleted from the cluster need
-		// to be deleted.
-		return true, nil
-	}
-	return false, nil
-}
-
-func (r *ChallengeDescriptionReconciler) removeBookkeeping(ctx context.Context, ctfd *v1alpha1.CTFd, challenge ctfdapi.Challenge) error {
-	index := slices.IndexFunc(ctfd.Status.ChallengeDescriptions, func(status v1alpha1.ChallengeDescriptionStatus) bool {
-		return status.Id == challenge.Id
-	})
-	if index == -1 {
-		return nil
-	}
-	ctfd.Status.ChallengeDescriptions = append(ctfd.Status.ChallengeDescriptions[:index], ctfd.Status.ChallengeDescriptions[index+1:]...)
-	if err := r.GetClient().Status().Update(ctx, ctfd); err != nil {
-		return err
 	}
 	return nil
 }
@@ -227,19 +245,4 @@ func (r *ChallengeDescriptionReconciler) resolveChallengeNamespace(ctfd *v1alpha
 
 func (r *ChallengeDescriptionReconciler) SetCTFdEndpoint(endpoint CTFdEndpointStrategy) {
 	r.ctfdEndpoint = endpoint
-}
-
-func (r *ChallengeDescriptionReconciler) getChallengeDescription(ctx context.Context, name string, namespace string) (*v1alpha2.ChallengeDescription, error) {
-	var challengeDescription v1alpha2.ChallengeDescription
-	if err := r.GetClient().Get(
-		ctx,
-		client.ObjectKey{
-			Name:      name,
-			Namespace: namespace,
-		},
-		&challengeDescription,
-	); err != nil {
-		return nil, client.IgnoreNotFound(err)
-	}
-	return &challengeDescription, nil
 }
