@@ -8,7 +8,7 @@ require (
 	github.com/backbone81/ctf-challenge-operator v0.2.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
-	github.com/minio/minio-go/v7 v7.0.93
+	github.com/minio/minio-go/v7 v7.0.94
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/spf13/cobra v1.9.1
@@ -17,9 +17,9 @@ require (
 	github.com/testcontainers/testcontainers-go v0.37.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.41.0
-	k8s.io/api v0.31.9
-	k8s.io/apimachinery v0.31.9
-	k8s.io/client-go v0.31.9
+	k8s.io/api v0.31.10
+	k8s.io/apimachinery v0.31.10
+	k8s.io/client-go v0.31.10
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.19.7
 )
